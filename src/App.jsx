@@ -255,7 +255,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+KR:wght@300;400;500;700&family=Playfair+Display:wght@600;700&display=swap');
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
         :root {
           --bg: #F6F1E9;
@@ -284,7 +284,7 @@ export default function App() {
             radial-gradient(circle at top left, rgba(255, 252, 246, 0.9), transparent 34rem),
             var(--bg);
           color: var(--ink);
-          font-family: 'Noto Sans KR', sans-serif;
+          font-family: 'Pretendard', -apple-system, sans-serif;
         }
         .header {
           display: flex;
@@ -300,7 +300,6 @@ export default function App() {
           backdrop-filter: blur(12px);
         }
         .brand {
-          font-family: 'Playfair Display', serif;
           font-size: 28px;
           font-weight: 700;
           letter-spacing: -0.02em;
@@ -314,7 +313,11 @@ export default function App() {
           font-size: 13px;
           flex-wrap: wrap;
         }
-        .mono { font-family: 'DM Mono', monospace; }
+        .mono {
+          font-family: 'Pretendard', -apple-system, sans-serif;
+          font-weight: 500;
+          letter-spacing: -0.02em;
+        }
         .time-pill {
           padding: 5px 10px;
           border-radius: 999px;
@@ -382,7 +385,6 @@ export default function App() {
           margin-bottom: 14px;
         }
         .title {
-          font-family: 'Playfair Display', serif;
           font-size: 34px;
           font-weight: 700;
           letter-spacing: -0.03em;
@@ -470,10 +472,10 @@ export default function App() {
           font-size: 10px;
         }
         .month-time {
-          font-family: 'DM Mono', monospace;
           font-size: clamp(18px, 1.8vw, 28px);
+          font-weight: 600;
           line-height: 1.05;
-          letter-spacing: -0.05em;
+          letter-spacing: -0.03em;
         }
         .person-short {
           margin-top: 8px;
@@ -487,9 +489,9 @@ export default function App() {
         .month-night {
           margin-top: 9px;
           color: var(--purple);
-          font-family: 'DM Mono', monospace;
           font-size: 13px;
-          font-weight: 700;
+          font-weight: 600;
+          letter-spacing: -0.03em;
         }
         .memo-dot {
           position: absolute;
@@ -510,8 +512,8 @@ export default function App() {
         }
         .detail h2, .apps h2 {
           margin: 0;
-          font-family: 'Playfair Display', serif;
           font-size: 28px;
+          font-weight: 700;
         }
         .muted {
           color: var(--muted);
@@ -539,9 +541,9 @@ export default function App() {
           margin-bottom: 8px;
         }
         .detail-time {
-          font-family: 'DM Mono', monospace;
           font-size: 26px;
-          letter-spacing: -0.04em;
+          font-weight: 600;
+          letter-spacing: -0.03em;
         }
         .slot {
           padding: 10px 0;
@@ -608,14 +610,14 @@ export default function App() {
           margin-bottom: 22px;
         }
         .week-date {
-          font-family: 'Playfair Display', serif;
           font-size: 24px;
+          font-weight: 700;
         }
         .week-time {
-          font-family: 'DM Mono', monospace;
           font-size: 30px;
+          font-weight: 600;
           line-height: 1.1;
-          letter-spacing: -0.06em;
+          letter-spacing: -0.03em;
           margin-bottom: 22px;
         }
         .week-slot {
