@@ -1,555 +1,1078 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const Y0 = 2026, M0 = 4;
+const SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSMJxwu6fXxh7MkJ8yzKOUVnah-M_Zwt5RN3mh9rX-46BWH40HsBAT4VWFl83bF9I3N6je-XUspAZOc/pub?gid=0&single=true&output=csv";
+
+const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+const ROLES = [
+  ["manager", "매니저"],
+  ["crew", "크루"],
+  ["daily", "일일지기"],
+];
 const today = new Date();
-const D0 = today.getDate();
-const todayKey = `2026-05-${String(D0).padStart(2, "0")}`;
-const DAYS = ["일","월","화","수","목","금","토"];
+
 const pad = n => String(n).padStart(2, "0");
-const dk = (y, m, d) => `${y}-${pad(m+1)}-${pad(d)}`;
-const dk5 = d => `2026-05-${pad(d)}`;
+const dateKey = date =>
+  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+const keyFromParts = (year, month, day) => `${year}-${pad(month + 1)}-${pad(day)}`;
+const todayKey = dateKey(today);
 
-const shortP = p => {
-  if (!p) return "";
-  const s = p.split(" / ")[0].split(" · ")[0].split(" (")[0].trim();
-  return s.length > 6 ? s.slice(0,6)+"…" : s;
-};
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let quoted = false;
 
-function mkData() {
-  const e = {};
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    const next = text[i + 1];
 
-  // ── 일요 지기 ──────────────────────────────
-  e[dk5(3)] = {
-    o:"11:00", c:"18:00",
-    p:"책방,파도 (11:00-14:30) / 호세매니저 (14:30-18:00)",
-    s:"confirmed", fb:[], open:false
-  };
-  e[dk5(10)] = {
-    o:"11:00", c:"18:00",
-    p:"소소안책방 (오전) / 오후 미정",
-    s:"pending", fb:[], open:false,
-    note:"소소안책방님 오후 가능 여부 확인 필요"
-  };
-  e[dk5(17)] = {
-    o:"11:00", c:"18:00",
-    p:"사소한수집소 (오전) / 책방,파도 (13:00-18:00)",
-    s:"confirmed", fb:[], open:true,
-    night:{ o:"20:00", c:"21:30", p:"썬북친구" }
-  };
-  e[dk5(24)] = {
-    o:"11:00", c:"18:00",
-    p:"복슬다람쥐 (오전) / 글꽃선비 (오후)",
-    s:"confirmed", fb:[], open:false,
-    night:{ o:"20:00", c:"21:30", p:"썬북친구" }
-  };
-  e[dk5(31)] = {
-    o:"13:00", c:"18:00",
-    p:"책방,파도 (13:00-18:00)",
-    s:"pending", fb:[], open:false,
-    note:"오전 지원자 없음 — 13:00 오픈 검토 중",
-    night:{ o:"20:00", c:"21:30", p:"썬북친구" }
-  };
-
-  // ── 월 새미·아영 / 야간 썬북친구 (5/18~) ──
-  e[dk5(4)]  = { o:"10:00", c:"18:00", p:"새미 · 아영", s:"confirmed", fb:[], open:false };
-  e[dk5(11)] = { o:"10:00", c:"18:00", p:"새미 · 아영", s:"confirmed", fb:[], open:false };
-  e[dk5(18)] = { o:"10:00", c:"18:00", p:"새미 · 아영", s:"confirmed", fb:[], open:false, night:{ o:"20:00", c:"21:30", p:"썬북친구" } };
-  e[dk5(25)] = { o:"10:00", c:"18:00", p:"새미 · 아영", s:"confirmed", fb:[], open:false, night:{ o:"20:00", c:"21:30", p:"썬북친구" } };
-
-  // ── 화 다온·미니 / 야간 화오두 (5/19~) ──
-  e[dk5(5)]  = { o:"10:00", c:"18:00", p:"다온 · 미니", s:"confirmed", fb:[], open:false };
-  e[dk5(12)] = { o:"10:00", c:"18:00", p:"다온 · 미니", s:"confirmed", fb:[], open:false };
-  e[dk5(19)] = { o:"10:00", c:"18:00", p:"다온 · 미니", s:"confirmed", fb:[], open:false, night:{ o:"18:30", c:"21:30", p:"화오두" } };
-  e[dk5(26)] = { o:"10:00", c:"18:00", p:"다온 · 미니", s:"confirmed", fb:[], open:false, night:{ o:"18:30", c:"21:30", p:"화오두" } };
-
-  // ── 수 아영 / 야간 화오두 (5/20~) ──
-  e[dk5(6)]  = { o:"10:00", c:"18:00", p:"아영", s:"confirmed", fb:[], open:false };
-  e[dk5(13)] = { o:"10:00", c:"18:00", p:"아영", s:"confirmed", fb:[], open:false };
-  e[dk5(20)] = { o:"10:00", c:"18:00", p:"아영", s:"confirmed", fb:[], open:false, night:{ o:"18:30", c:"21:30", p:"화오두" } };
-  e[dk5(27)] = { o:"10:00", c:"18:00", p:"아영", s:"confirmed", fb:[], open:false, night:{ o:"18:30", c:"21:30", p:"화오두" } };
-
-  // ── 목 새미 (1·3주 미니 오후3시~) / 야간없음 ──
-  e[dk5(7)]  = { o:"10:00", c:"18:00", p:"새미 · 미니 (오후 3시~)", s:"confirmed", fb:[], open:false };
-  e[dk5(14)] = { o:"10:00", c:"18:00", p:"새미", s:"confirmed", fb:[], open:false };
-  e[dk5(21)] = { o:"10:00", c:"18:00", p:"새미 · 미니 (오후 3시~)", s:"confirmed", fb:[], open:false };
-  e[dk5(28)] = { o:"10:00", c:"18:00", p:"새미", s:"confirmed", fb:[], open:false };
-
-  // ── 금 다온·써든리(~17:00) / 야간 썬북친구 (5/22~) ──
-  e[dk5(1)]  = { o:"10:00", c:"18:00", p:"다온 · 써든리 (~17:00)", s:"confirmed", fb:[], open:false };
-  e[dk5(8)]  = { o:"10:00", c:"18:00", p:"다온 · 써든리 (~17:00)", s:"confirmed", fb:[], open:false };
-  e[dk5(15)] = { o:"10:00", c:"18:00", p:"다온 · 써든리 (~17:00)", s:"confirmed", fb:[], open:false };
-  e[dk5(22)] = { o:"10:00", c:"18:00", p:"다온 · 써든리 (~17:00)", s:"confirmed", fb:[], open:false, night:{ o:"20:00", c:"21:30", p:"썬북친구" } };
-  e[dk5(29)] = { o:"10:00", c:"18:00", p:"다온 · 써든리 (~17:00)", s:"confirmed", fb:[], open:false,
-    night:{ o:"20:00", c:"21:30", p:"썬북친구 · 책방,파도" }
-  };
-
-  // ── 토 용·미니 / 야간 화오두 (5/23~) ──
-  e[dk5(2)]  = { o:"10:00", c:"18:00", p:"용 · 미니", s:"confirmed", fb:[], open:false };
-  e[dk5(9)]  = { o:"10:00", c:"18:00", p:"용 · 미니", s:"confirmed", fb:[], open:false };
-  e[dk5(16)] = { o:"10:00", c:"18:00", p:"용 · 미니", s:"confirmed", fb:[], open:false };
-  e[dk5(23)] = { o:"10:00", c:"18:00", p:"용 · 미니", s:"confirmed", fb:[], open:false, night:{ o:"18:30", c:"21:30", p:"화오두" } };
-  e[dk5(30)] = { o:"10:00", c:"18:00", p:"용 · 미니", s:"confirmed", fb:[], open:false,
-    note:"행사 있음 (30일)", night:{ o:"18:30", c:"21:30", p:"화오두" }
-  };
-
-  return e;
-}
-
-const C = {
-  bg:"#F6F1E9", surface:"#FEFCF8", primary:"#243B1A",
-  accent:"#B8531F", muted:"#7A6B52", border:"#D6CCBA",
-  green:"#2F7B2A", amber:"#C47C1A", red:"#B83B3B",
-  text:"#1A1208", lightGreen:"#E8F5E4", lightAmber:"#FDF0E0",
-  night:"rgba(70,45,120,0.07)", nightBorder:"rgba(90,55,150,0.18)", nightText:"#7B5EAE"
-};
-
-const inp = {
-  width:"100%", padding:"8px 10px", border:`1px solid ${C.border}`,
-  borderRadius:6, background:C.surface, color:C.text,
-  fontFamily:"'Noto Sans KR',sans-serif", fontSize:13, boxSizing:"border-box"
-};
-const btn = (bg, color="#fff") => ({
-  padding:"8px 16px", border:"none", borderRadius:6, cursor:"pointer",
-  background:bg, color, fontFamily:"'Noto Sans KR',sans-serif", fontSize:13, fontWeight:600
-});
-
-export default function App() {
-  const [Y, setY] = useState(Y0);
-  const [M, setM] = useState(M0);
-  const [sch, setSch] = useState(mkData);
-  const [apps, setApps] = useState([]);
-  const [sel, setSel] = useState(null);
-  const [role, setRole] = useState("manager");
-  const [tab, setTab] = useState("cal");
-  const [editing, setEditing] = useState(false);
-  const [ef, setEf] = useState({ o:"11:00", c:"18:00", p:"", s:"confirmed", hasNight:false, no:"18:30", nc:"21:30", np:"", note:"" });
-  const [af, setAf] = useState({ o:"11:00", c:"18:00", name:"", role:"크루", note:"" });
-  const [ff, setFf] = useState({ author:"", role:"크루", text:"" });
-  const [applyDone, setApplyDone] = useState(false);
-  const [fbDone, setFbDone] = useState(false);
-
-  const dims = new Date(Y, M+1, 0).getDate();
-  const fday = new Date(Y, M, 1).getDay();
-  const selKey = sel ? dk(Y, M, sel) : null;
-  const selSch = selKey ? sch[selKey] : null;
-  const todSch = sch[todayKey];
-  const pendingCount = apps.filter(a => a.status === "pending").length;
-
-  function nav(dir) {
-    let m = M+dir, y = Y;
-    if (m<0){m=11;y--;} if(m>11){m=0;y++;}
-    setM(m); setY(y); setSel(null); setEditing(false);
+    if (ch === '"' && quoted && next === '"') {
+      value += '"';
+      i += 1;
+    } else if (ch === '"') {
+      quoted = !quoted;
+    } else if (ch === "," && !quoted) {
+      row.push(value);
+      value = "";
+    } else if ((ch === "\n" || ch === "\r") && !quoted) {
+      if (ch === "\r" && next === "\n") i += 1;
+      row.push(value);
+      if (row.some(cell => cell.trim() !== "")) rows.push(row);
+      row = [];
+      value = "";
+    } else {
+      value += ch;
+    }
   }
 
-  function clickDay(d) {
-    setSel(d); setEditing(false); setApplyDone(false); setFbDone(false);
-    const s = sch[dk(Y, M, d)];
-    setEf(s
-      ? { o:s.o, c:s.c, p:s.p, s:s.s, hasNight:!!s.night,
-          no:s.night?.o||"18:30", nc:s.night?.c||"21:30", np:s.night?.p||"", note:s.note||"" }
-      : { o:"11:00", c:"18:00", p:"", s:"confirmed", hasNight:false, no:"18:30", nc:"21:30", np:"", note:"" }
+  row.push(value);
+  if (row.some(cell => cell.trim() !== "")) rows.push(row);
+  return rows;
+}
+
+function normalizeStatus(status) {
+  const value = status.trim().toLowerCase();
+  if (["확정", "confirmed", "confirm", "done", "true"].includes(value)) return "confirmed";
+  return "pending";
+}
+
+function scheduleFromCsv(csv) {
+  const rows = parseCsv(csv).slice(1);
+  const entries = {};
+
+  rows.forEach(cols => {
+    const [date, open, close, person, status, memo, hasNight, nightOpen, nightClose, nightPerson] =
+      cols.map(col => col.trim());
+
+    if (!date) return;
+
+    entries[date] = {
+      date,
+      open,
+      close,
+      person,
+      status: normalizeStatus(status),
+      memo,
+      openNow: false,
+      night:
+        hasNight.toUpperCase() === "TRUE"
+          ? {
+              open: nightOpen,
+              close: nightClose,
+              person: nightPerson,
+            }
+          : null,
+    };
+  });
+
+  return entries;
+}
+
+function splitSlots(value = "") {
+  return value
+    .split(/\s*\/\s*|\n/)
+    .map(slot => slot.trim())
+    .filter(Boolean);
+}
+
+function shortName(value = "") {
+  const first = splitSlots(value)[0] || value;
+  const clean = first.split(/[·,(]/)[0].trim();
+  return clean.length > 8 ? `${clean.slice(0, 8)}...` : clean;
+}
+
+function addDays(date, amount) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + amount);
+  return next;
+}
+
+function startOfWeek(date) {
+  return addDays(date, -date.getDay());
+}
+
+function prettyDate(date) {
+  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
+
+export default function App() {
+  const [schedule, setSchedule] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [role, setRole] = useState("manager");
+  const [tab, setTab] = useState("month");
+  const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [weekStart, setWeekStart] = useState(startOfWeek(today));
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [isOpenNow, setIsOpenNow] = useState(false);
+  const [feedback, setFeedback] = useState({});
+  const [feedbackForm, setFeedbackForm] = useState({ author: "", role: "크루", text: "" });
+  const [applications, setApplications] = useState([]);
+  const [applicationForm, setApplicationForm] = useState({
+    name: "",
+    role: "크루",
+    date: todayKey,
+    time: "",
+    note: "",
+  });
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadSchedule() {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await fetch(SHEET_URL);
+        if (!res.ok) throw new Error(`CSV를 불러오지 못했습니다. (${res.status})`);
+        const csv = await res.text();
+        const nextSchedule = scheduleFromCsv(csv);
+        if (!ignore) {
+          setSchedule(nextSchedule);
+          const firstDate = Object.keys(nextSchedule).sort()[0];
+          if (!nextSchedule[todayKey] && firstDate) {
+            const first = new Date(`${firstDate}T00:00:00`);
+            setMonthCursor(new Date(first.getFullYear(), first.getMonth(), 1));
+            setSelectedDate(firstDate);
+          }
+        }
+      } catch (err) {
+        if (!ignore) setError(err.message || "알 수 없는 오류가 발생했습니다.");
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    loadSchedule();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const selected = schedule[selectedDate];
+  const todaySchedule = schedule[todayKey];
+  const pendingCount = applications.filter(app => app.status === "pending").length;
+
+  const monthCells = useMemo(() => {
+    const year = monthCursor.getFullYear();
+    const month = monthCursor.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    const cells = Array.from({ length: firstDay }, () => null);
+
+    for (let day = 1; day <= lastDate; day += 1) {
+      const date = new Date(year, month, day);
+      cells.push({ day, date, key: keyFromParts(year, month, day) });
+    }
+
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  }, [monthCursor]);
+
+  const weekDays = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, index) => {
+        const date = addDays(weekStart, index);
+        return { date, key: dateKey(date) };
+      }),
+    [weekStart],
+  );
+
+  function moveMonth(amount) {
+    setMonthCursor(prev => new Date(prev.getFullYear(), prev.getMonth() + amount, 1));
+    setSelectedDate("");
+  }
+
+  function chooseDate(key) {
+    setSelectedDate(key);
+    setApplicationForm(prev => ({ ...prev, date: key }));
+  }
+
+  function statusLabel(entry) {
+    return entry?.status === "confirmed" ? "확정" : "검토중";
+  }
+
+  function submitFeedback() {
+    if (!selectedDate || !feedbackForm.author.trim() || !feedbackForm.text.trim()) return;
+    setFeedback(prev => ({
+      ...prev,
+      [selectedDate]: [
+        ...(prev[selectedDate] || []),
+        { ...feedbackForm, createdAt: todayKey, id: crypto.randomUUID() },
+      ],
+    }));
+    setFeedbackForm({ author: "", role: "크루", text: "" });
+  }
+
+  function submitApplication(event) {
+    event.preventDefault();
+    if (!applicationForm.name.trim()) return;
+    setApplications(prev => [
+      {
+        ...applicationForm,
+        id: crypto.randomUUID(),
+        status: "pending",
+        createdAt: todayKey,
+      },
+      ...prev,
+    ]);
+    setApplicationForm(prev => ({ ...prev, name: "", time: "", note: "" }));
+  }
+
+  function approveApplication(id) {
+    setApplications(prev =>
+      prev.map(app => (app.id === id ? { ...app, status: "approved" } : app)),
     );
   }
 
-  function save() {
-    const existing = sch[selKey] || { fb:[], open:false };
-    const entry = { ...existing, o:ef.o, c:ef.c, p:ef.p, s:ef.s };
-    if (ef.note) entry.note = ef.note; else delete entry.note;
-    if (ef.hasNight) entry.night = { o:ef.no, c:ef.nc, p:ef.np };
-    else delete entry.night;
-    setSch(prev => ({ ...prev, [selKey]: entry }));
-    setEditing(false);
+  function rejectApplication(id) {
+    setApplications(prev =>
+      prev.map(app => (app.id === id ? { ...app, status: "rejected" } : app)),
+    );
   }
-
-  function del() {
-    setSch(p => { const n={...p}; delete n[selKey]; return n; });
-    setEditing(false); setSel(null);
-  }
-
-  function approve(id) {
-    const a = apps.find(x => x.id===id);
-    if (!a) return;
-    setSch(p => ({ ...p, [a.date]:{ o:a.o, c:a.c, p:`${a.name} (${a.role})`, s:"confirmed", fb:p[a.date]?.fb||[], open:false } }));
-    setApps(p => p.map(x => x.id===id ? {...x,status:"approved"} : x));
-  }
-  function reject(id) { setApps(p => p.map(x => x.id===id ? {...x,status:"rejected"} : x)); }
-
-  function submitApp() {
-    if (!selKey || !af.name) return;
-    setApps(p => [...p, { id:Date.now(), date:selKey, o:af.o, c:af.c, name:af.name, role:af.role, note:af.note, status:"pending", at:todayKey }]);
-    setAf({ o:"11:00", c:"18:00", name:"", role:"크루", note:"" });
-    setApplyDone(true);
-  }
-
-  function submitFb() {
-    if (!selKey || !ff.text || !ff.author) return;
-    setSch(p => ({ ...p, [selKey]:{ ...p[selKey], fb:[...(p[selKey]?.fb||[]), {...ff, date:todayKey}] } }));
-    setFf({ author:"", role:"크루", text:"" });
-    setFbDone(true);
-    setTimeout(() => setFbDone(false), 2000);
-  }
-
-  function toggleOpen() {
-    if (!todSch) return;
-    setSch(p => ({ ...p, [todayKey]:{ ...p[todayKey], open:!p[todayKey].open } }));
-  }
-
-  const cells = [];
-  for (let i=0;i<fday;i++) cells.push(null);
-  for (let d=1;d<=dims;d++) cells.push(d);
-
-  const isToday = d => Y===Y0 && M===M0 && d===D0;
-  const isPast = d => new Date(Y,M,d) < new Date(Y0,M0,D0);
-  const schColor = s => s?.s==="confirmed" ? C.lightGreen : s?.s==="pending" ? C.lightAmber : C.bg;
-  const dotColor = s => s?.s==="confirmed" ? C.green : C.amber;
 
   return (
-    <div style={{ background:C.bg, minHeight:"100vh", fontFamily:"'Noto Sans KR',sans-serif", color:C.text }}>
+    <div className="app-shell">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;1,500&family=DM+Mono:wght@400;500&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0}
-        button:hover{filter:brightness(0.92)}
-        input:focus,select:focus,textarea:focus{border-color:${C.primary}!important;outline:none}
-        .dc:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(36,59,26,0.12)}
-        .dc{transition:all 0.15s ease}
-        .fi{animation:fi 0.2s ease}
-        @keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+KR:wght@300;400;500;700&family=Playfair+Display:wght@600;700&display=swap');
+
+        :root {
+          --bg: #F6F1E9;
+          --surface: #FFFCF6;
+          --surface-2: #EFE7DA;
+          --ink: #21170D;
+          --muted: #786A59;
+          --line: #D8CDBB;
+          --green: #E4F4D8;
+          --green-ink: #35662C;
+          --yellow: #FFF1BF;
+          --yellow-ink: #8B6A10;
+          --orange: #D8752B;
+          --purple: #7B61B0;
+          --purple-bg: #EEE7FA;
+          --red: #B84738;
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); }
+        button, input, textarea, select { font: inherit; }
+        button { cursor: pointer; }
+        .app-shell {
+          min-height: 100vh;
+          background:
+            radial-gradient(circle at top left, rgba(255, 252, 246, 0.9), transparent 34rem),
+            var(--bg);
+          color: var(--ink);
+          font-family: 'Noto Sans KR', sans-serif;
+        }
+        .header {
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          min-height: 76px;
+          padding: 18px 28px;
+          background: rgba(255, 252, 246, 0.78);
+          border-bottom: 1px solid var(--line);
+          position: sticky;
+          top: 0;
+          z-index: 5;
+          backdrop-filter: blur(12px);
+        }
+        .brand {
+          font-family: 'Playfair Display', serif;
+          font-size: 28px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          white-space: nowrap;
+        }
+        .today-strip {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: var(--muted);
+          font-size: 13px;
+          flex-wrap: wrap;
+        }
+        .mono { font-family: 'DM Mono', monospace; }
+        .time-pill {
+          padding: 5px 10px;
+          border-radius: 999px;
+          background: var(--surface-2);
+          color: var(--ink);
+        }
+        .night-text { color: var(--purple); }
+        .role-switch {
+          display: flex;
+          gap: 6px;
+          margin-left: auto;
+          padding: 4px;
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          background: var(--bg);
+        }
+        .role-switch button, .tabs button, .ghost-btn, .solid-btn {
+          border: 0;
+          border-radius: 999px;
+          background: transparent;
+        }
+        .role-switch button {
+          padding: 8px 14px;
+          color: var(--muted);
+          font-size: 13px;
+        }
+        .role-switch button.active, .tabs button.active {
+          background: var(--ink);
+          color: var(--surface);
+        }
+        .open-toggle {
+          padding: 7px 13px;
+          border: 1px solid var(--line);
+          border-radius: 999px;
+          background: var(--surface);
+          color: var(--muted);
+        }
+        .open-toggle.active {
+          border-color: var(--green-ink);
+          background: var(--green);
+          color: var(--green-ink);
+          font-weight: 700;
+        }
+        .main {
+          width: min(1380px, calc(100vw - 36px));
+          margin: 0 auto;
+          padding: 24px 0 42px;
+        }
+        .tabs {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 20px;
+        }
+        .tabs button {
+          padding: 11px 18px;
+          background: rgba(255, 252, 246, 0.7);
+          color: var(--muted);
+          border: 1px solid var(--line);
+          font-weight: 700;
+        }
+        .toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 14px;
+        }
+        .title {
+          font-family: 'Playfair Display', serif;
+          font-size: 34px;
+          font-weight: 700;
+          letter-spacing: -0.03em;
+        }
+        .nav-group {
+          display: flex;
+          gap: 8px;
+        }
+        .ghost-btn, .solid-btn {
+          padding: 10px 14px;
+          font-weight: 700;
+        }
+        .ghost-btn {
+          border: 1px solid var(--line);
+          background: var(--surface);
+          color: var(--ink);
+        }
+        .solid-btn {
+          background: var(--ink);
+          color: var(--surface);
+        }
+        .status-card {
+          padding: 28px;
+          border: 1px solid var(--line);
+          border-radius: 22px;
+          background: var(--surface);
+          color: var(--muted);
+          text-align: center;
+        }
+        .month-layout {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 360px;
+          gap: 18px;
+          align-items: start;
+        }
+        .calendar {
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .dow {
+          padding: 7px 4px;
+          color: var(--muted);
+          font-size: 12px;
+          font-weight: 700;
+          text-align: center;
+        }
+        .day-cell {
+          min-height: 132px;
+          padding: 12px;
+          border: 1px solid var(--line);
+          border-radius: 18px;
+          background: var(--surface);
+          position: relative;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .day-cell:not(.empty):hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 28px rgba(33, 23, 13, 0.09);
+        }
+        .day-cell.confirmed { background: var(--green); }
+        .day-cell.pending { background: var(--yellow); }
+        .day-cell.selected {
+          outline: 3px solid var(--ink);
+          outline-offset: -3px;
+        }
+        .day-cell.empty {
+          background: transparent;
+          border-color: transparent;
+        }
+        .day-num {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          color: var(--muted);
+          font-size: 13px;
+          font-weight: 700;
+          margin-bottom: 10px;
+        }
+        .today-badge {
+          padding: 2px 7px;
+          border-radius: 999px;
+          background: var(--orange);
+          color: white;
+          font-size: 10px;
+        }
+        .month-time {
+          font-family: 'DM Mono', monospace;
+          font-size: clamp(18px, 1.8vw, 28px);
+          line-height: 1.05;
+          letter-spacing: -0.05em;
+        }
+        .person-short {
+          margin-top: 8px;
+          color: var(--muted);
+          font-size: 13px;
+          font-weight: 700;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .month-night {
+          margin-top: 9px;
+          color: var(--purple);
+          font-family: 'DM Mono', monospace;
+          font-size: 13px;
+          font-weight: 700;
+        }
+        .memo-dot {
+          position: absolute;
+          right: 12px;
+          bottom: 12px;
+          width: 9px;
+          height: 9px;
+          border-radius: 999px;
+          background: var(--orange);
+        }
+        .detail {
+          border: 1px solid var(--line);
+          border-radius: 24px;
+          background: rgba(255, 252, 246, 0.86);
+          padding: 20px;
+          position: sticky;
+          top: 100px;
+        }
+        .detail h2, .apps h2 {
+          margin: 0;
+          font-family: 'Playfair Display', serif;
+          font-size: 28px;
+        }
+        .muted {
+          color: var(--muted);
+          font-size: 13px;
+        }
+        .block {
+          margin-top: 16px;
+          padding: 16px;
+          border-radius: 18px;
+          background: var(--bg);
+        }
+        .block.day.confirmed { background: var(--green); }
+        .block.day.pending { background: var(--yellow); }
+        .block.night {
+          border: 1px solid rgba(123, 97, 176, 0.25);
+          background: var(--purple-bg);
+        }
+        .block-label {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          color: var(--muted);
+          font-size: 12px;
+          font-weight: 700;
+          margin-bottom: 8px;
+        }
+        .detail-time {
+          font-family: 'DM Mono', monospace;
+          font-size: 26px;
+          letter-spacing: -0.04em;
+        }
+        .slot {
+          padding: 10px 0;
+          border-top: 1px solid rgba(33, 23, 13, 0.12);
+          color: var(--ink);
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        .memo {
+          color: var(--orange);
+          line-height: 1.55;
+        }
+        .field {
+          width: 100%;
+          padding: 11px 12px;
+          border: 1px solid var(--line);
+          border-radius: 13px;
+          background: var(--surface);
+          color: var(--ink);
+        }
+        textarea.field { resize: vertical; }
+        .form-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+        .feedback-item, .application-card {
+          padding: 13px;
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          background: var(--surface);
+        }
+        .feedback-list {
+          display: grid;
+          gap: 8px;
+          margin-top: 12px;
+        }
+        .weekly-grid {
+          display: grid;
+          grid-template-columns: repeat(7, minmax(150px, 1fr));
+          gap: 14px;
+          overflow-x: auto;
+          padding-bottom: 4px;
+        }
+        .week-card {
+          min-height: 430px;
+          padding: 18px;
+          border: 1px solid var(--line);
+          border-radius: 24px;
+          background: var(--surface);
+        }
+        .week-card.empty {
+          background: #E9E1D5;
+          color: var(--muted);
+        }
+        .week-card.today {
+          border: 2px solid var(--orange);
+        }
+        .week-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 22px;
+        }
+        .week-date {
+          font-family: 'Playfair Display', serif;
+          font-size: 24px;
+        }
+        .week-time {
+          font-family: 'DM Mono', monospace;
+          font-size: 30px;
+          line-height: 1.1;
+          letter-spacing: -0.06em;
+          margin-bottom: 22px;
+        }
+        .week-slot {
+          padding: 13px 0;
+          border-top: 1px solid var(--line);
+          line-height: 1.5;
+        }
+        .week-night {
+          margin-top: 18px;
+          padding: 14px;
+          border-radius: 16px;
+          background: var(--purple-bg);
+          color: var(--purple);
+        }
+        .apps {
+          max-width: 900px;
+        }
+        .apps-list {
+          display: grid;
+          gap: 12px;
+          margin-top: 18px;
+        }
+        .application-card {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 16px;
+          align-items: center;
+        }
+        .app-actions {
+          display: flex;
+          gap: 8px;
+        }
+        .danger {
+          background: #F9E4DF;
+          color: var(--red);
+        }
+        @media (max-width: 980px) {
+          .header { align-items: flex-start; flex-direction: column; }
+          .role-switch { margin-left: 0; }
+          .month-layout { grid-template-columns: 1fr; }
+          .detail { position: static; }
+        }
       `}</style>
 
-      {/* ── Header ── */}
-      <div style={{ background:C.primary, padding:"0 20px", display:"flex", alignItems:"center", height:56, gap:14, flexWrap:"wrap" }}>
-        <div style={{ fontFamily:"'Playfair Display',serif", color:"#fff", fontSize:18, letterSpacing:0.5, flexShrink:0 }}>
-          비북스 <span style={{ opacity:0.5, fontSize:12, fontStyle:"italic", fontWeight:400 }}>오픈 관리</span>
-        </div>
-        {todSch && Y===Y0 && M===M0 && (
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginLeft:6 }}>
-            <span style={{ color:"rgba(255,255,255,0.55)", fontSize:11 }}>오늘</span>
-            <span style={{ fontFamily:"'DM Mono',monospace", color:"#fff", fontSize:12 }}>{todSch.o}–{todSch.c}</span>
-            {todSch.night && (
-              <span style={{ fontFamily:"'DM Mono',monospace", color:"rgba(200,175,255,0.8)", fontSize:11 }}>
-                야간 {todSch.night.o}–{todSch.night.c}
+      <header className="header">
+        <div className="brand">BBOOKS Ops</div>
+        <div className="today-strip">
+          <strong>오늘</strong>
+          {todaySchedule ? (
+            <>
+              <span className="time-pill mono">
+                낮 {todaySchedule.open}-{todaySchedule.close}
               </span>
-            )}
-            <button onClick={toggleOpen} style={{
-              padding:"3px 12px", borderRadius:20, cursor:"pointer", fontSize:11, fontWeight:600,
-              border:`1.5px solid ${todSch.open?"#6EE26B":"rgba(255,255,255,0.3)"}`,
-              background:todSch.open?"rgba(46,123,42,0.5)":"transparent", color:"#fff"
-            }}>{todSch.open?"● 오픈 중":"○ 오픈 전"}</button>
-          </div>
-        )}
-        <div style={{ marginLeft:"auto", display:"flex", gap:4 }}>
-          {[["manager","매니저"],["crew","크루"],["daily","일일지기"]].map(([r,l]) => (
-            <button key={r} onClick={() => setRole(r)} style={{
-              padding:"4px 11px", borderRadius:20, cursor:"pointer", fontSize:11,
-              fontWeight:role===r?600:400, border:"1px solid rgba(255,255,255,0.3)",
-              background:role===r?"rgba(255,255,255,0.18)":"transparent", color:"#fff"
-            }}>{l}</button>
+              {todaySchedule.night && (
+                <span className="time-pill mono night-text">
+                  야간 {todaySchedule.night.open}-{todaySchedule.night.close}
+                </span>
+              )}
+            </>
+          ) : (
+            <span>등록된 일정 없음</span>
+          )}
+          <button
+            className={`open-toggle ${isOpenNow ? "active" : ""}`}
+            onClick={() => setIsOpenNow(prev => !prev)}
+          >
+            {isOpenNow ? "오픈중" : "오픈전"}
+          </button>
+        </div>
+        <div className="role-switch" aria-label="역할 전환">
+          {ROLES.map(([value, label]) => (
+            <button
+              className={role === value ? "active" : ""}
+              key={value}
+              onClick={() => {
+                setRole(value);
+                if (value !== "manager" && tab === "apps") setTab("month");
+              }}
+            >
+              {label}
+            </button>
           ))}
         </div>
-      </div>
+      </header>
 
-      {/* ── Tab Nav ── */}
-      <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:"0 20px", display:"flex" }}>
-        {[{id:"cal",label:"캘린더"}, role==="manager"?{id:"apps",label:`신청 관리${pendingCount?` (${pendingCount})`:""}`}:null].filter(Boolean).map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding:"12px 18px", border:"none", cursor:"pointer", fontSize:13,
-            borderBottom:tab===t.id?`2.5px solid ${C.primary}`:"2.5px solid transparent",
-            background:"transparent", color:tab===t.id?C.primary:C.muted,
-            fontWeight:tab===t.id?600:400, fontFamily:"'Noto Sans KR',sans-serif", marginBottom:-1
-          }}>{t.label}</button>
-        ))}
-      </div>
+      <main className="main">
+        <nav className="tabs" aria-label="뷰 전환">
+          {[
+            ["month", "월간"],
+            ["week", "주간"],
+            ...(role === "manager" ? [["apps", `신청 관리${pendingCount ? ` ${pendingCount}` : ""}`]] : []),
+          ].map(([value, label]) => (
+            <button
+              className={tab === value ? "active" : ""}
+              key={value}
+              onClick={() => setTab(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
 
-      <div style={{ display:"flex", gap:18, padding:18, maxWidth:1100, margin:"0 auto" }}>
+        {loading && <div className="status-card">구글 시트에서 운영 일정을 불러오는 중입니다.</div>}
+        {error && !loading && <div className="status-card">오류: {error}</div>}
 
-        {/* ═══ CALENDAR TAB ═══ */}
-        {tab==="cal" && (<>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-              <button onClick={() => nav(-1)} style={{ ...btn(C.surface,C.text), border:`1px solid ${C.border}`, padding:"5px 13px" }}>‹</button>
-              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:21 }}>{Y}년 {M+1}월</div>
-              <button onClick={() => nav(1)} style={{ ...btn(C.surface,C.text), border:`1px solid ${C.border}`, padding:"5px 13px" }}>›</button>
-            </div>
+        {!loading && !error && tab === "month" && (
+          <section className="month-layout">
+            <div>
+              <div className="toolbar">
+                <div className="title">
+                  {monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월
+                </div>
+                <div className="nav-group">
+                  <button className="ghost-btn" onClick={() => moveMonth(-1)}>
+                    이전 달
+                  </button>
+                  <button className="ghost-btn" onClick={() => moveMonth(1)}>
+                    다음 달
+                  </button>
+                </div>
+              </div>
 
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3, marginBottom:5 }}>
-              {DAYS.map((d,i) => (
-                <div key={d} style={{ textAlign:"center", fontSize:11, fontWeight:500, padding:"3px 0",
-                  color:i===0?"#B83B3B":i===6?"#2B5AB8":C.muted }}>{d}</div>
-              ))}
-            </div>
-
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3 }}>
-              {cells.map((d,i) => {
-                if (!d) return <div key={`e${i}`}/>;
-                const key = dk(Y,M,d);
-                const s = sch[key];
-                const isTod = isToday(d);
-                const isPst = isPast(d);
-                const isSel = sel===d;
-                const dow = (fday+d-1)%7;
-                return (
-                  <div key={d} className="dc" onClick={() => clickDay(d)} style={{
-                    background:isSel?C.primary:s?schColor(s):C.surface,
-                    border:`1.5px solid ${isTod?C.accent:isSel?"transparent":C.border}`,
-                    borderRadius:8, padding:"6px 6px 5px", cursor:"pointer", minHeight:78,
-                    opacity:isPst&&!s?0.35:1, position:"relative"
-                  }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
-                      <span style={{ fontSize:12, fontWeight:isTod?700:400,
-                        color:isSel?"#fff":dow===0?"#B83B3B":dow===6?"#2B5AB8":isPst?C.muted:C.text }}>{d}</span>
-                      <div style={{ display:"flex", gap:3 }}>
-                        {s?.open && <span style={{ width:5,height:5,borderRadius:"50%",background:"#6EE26B",display:"block" }}/>}
-                        {!s?.open && s?.s==="pending" && !isSel && <span style={{ width:5,height:5,borderRadius:"50%",background:C.amber,display:"block" }}/>}
-                      </div>
-                    </div>
-                    {s && (<>
-                      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9.5, lineHeight:1.3,
-                        color:isSel?"rgba(255,255,255,0.9)":dotColor(s) }}>{s.o}–{s.c}</div>
-                      <div style={{ fontSize:9.5, color:isSel?"rgba(255,255,255,0.65)":C.muted,
-                        marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                        {shortP(s.p)}
-                      </div>
-                      {s.night && (
-                        <div style={{ fontSize:9, marginTop:2,
-                          color:isSel?"rgba(205,185,255,0.85)":C.nightText }}>
-                          야간 {s.night.p.split(" · ")[0]}
-                        </div>
-                      )}
-                    </>)}
-                    {isTod && <div style={{ position:"absolute",top:4,right:5,width:5,height:5,borderRadius:"50%",background:C.accent }}/>}
-                    {s?.note && !isSel && <div style={{ position:"absolute",bottom:4,right:5,width:4,height:4,borderRadius:"50%",background:C.amber,opacity:0.8 }}/>}
+              <div className="calendar">
+                {DAYS.map(day => (
+                  <div className="dow" key={day}>
+                    {day}
                   </div>
+                ))}
+                {monthCells.map((cell, index) => {
+                  if (!cell) return <div className="day-cell empty" key={`empty-${index}`} />;
+
+                  const entry = schedule[cell.key];
+                  const isToday = cell.key === todayKey;
+                  const className = [
+                    "day-cell",
+                    entry?.status,
+                    selectedDate === cell.key ? "selected" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <button className={className} key={cell.key} onClick={() => chooseDate(cell.key)}>
+                      <div className="day-num">
+                        <span>{cell.day}</span>
+                        {isToday && <span className="today-badge">오늘</span>}
+                      </div>
+                      {entry ? (
+                        <>
+                          <div className="month-time">
+                            {entry.open}-{entry.close}
+                          </div>
+                          <div className="person-short">{shortName(entry.person)}</div>
+                          {entry.night && (
+                            <div className="month-night">
+                              {entry.night.open}-{entry.night.close}
+                            </div>
+                          )}
+                          {entry.memo && <span className="memo-dot" aria-label="메모 있음" />}
+                        </>
+                      ) : (
+                        <div className="muted">일정 없음</div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <DetailPanel
+              applicationForm={applicationForm}
+              entry={selected}
+              feedback={feedback[selectedDate] || []}
+              feedbackForm={feedbackForm}
+              role={role}
+              selectedDate={selectedDate}
+              setApplicationForm={setApplicationForm}
+              setFeedbackForm={setFeedbackForm}
+              statusLabel={statusLabel}
+              submitApplication={submitApplication}
+              submitFeedback={submitFeedback}
+            />
+          </section>
+        )}
+
+        {!loading && !error && tab === "week" && (
+          <section>
+            <div className="toolbar">
+              <div className="title">
+                {prettyDate(weekStart)}-{prettyDate(addDays(weekStart, 6))}
+              </div>
+              <div className="nav-group">
+                <button className="ghost-btn" onClick={() => setWeekStart(prev => addDays(prev, -7))}>
+                  이전 주
+                </button>
+                <button className="ghost-btn" onClick={() => setWeekStart(startOfWeek(today))}>
+                  이번 주
+                </button>
+                <button className="ghost-btn" onClick={() => setWeekStart(prev => addDays(prev, 7))}>
+                  다음 주
+                </button>
+              </div>
+            </div>
+
+            <div className="weekly-grid">
+              {weekDays.map(({ date, key }, index) => {
+                const entry = schedule[key];
+                const isToday = key === todayKey;
+                return (
+                  <article
+                    className={`week-card ${entry ? "" : "empty"} ${isToday ? "today" : ""}`}
+                    key={key}
+                  >
+                    <div className="week-head">
+                      <div>
+                        <div className="week-date">{date.getDate()}</div>
+                        <div className="muted">{DAYS[index]}요일</div>
+                      </div>
+                      {isToday && <span className="today-badge">오늘</span>}
+                    </div>
+
+                    {entry ? (
+                      <>
+                        <div className="week-time">
+                          {entry.open}
+                          <br />
+                          {entry.close}
+                        </div>
+                        {splitSlots(entry.person).map(slot => (
+                          <div className="week-slot" key={slot}>
+                            {slot}
+                          </div>
+                        ))}
+                        {entry.night && (
+                          <div className="week-night">
+                            <div className="mono">
+                              야간 {entry.night.open}-{entry.night.close}
+                            </div>
+                            <strong>{entry.night.person}</strong>
+                          </div>
+                        )}
+                        {entry.memo && <p className="memo">{entry.memo}</p>}
+                      </>
+                    ) : (
+                      <div>일정 없는 날</div>
+                    )}
+                  </article>
                 );
               })}
             </div>
+          </section>
+        )}
 
-            <div style={{ display:"flex", gap:14, marginTop:12, fontSize:11, color:C.muted, flexWrap:"wrap" }}>
-              {[[C.green,"낮 확정"],[C.amber,"검토중"],[C.nightText,"야간있음"],[C.accent,"오늘"],["#6EE26B","오픈중"]].map(([col,label]) => (
-                <div key={label} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                  <span style={{ width:7,height:7,borderRadius:"50%",background:col,display:"inline-block" }}/>{label}
-                </div>
-              ))}
+        {!loading && !error && tab === "apps" && role === "manager" && (
+          <Applications
+            applications={applications}
+            approveApplication={approveApplication}
+            rejectApplication={rejectApplication}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+function DetailPanel({
+  applicationForm,
+  entry,
+  feedback,
+  feedbackForm,
+  role,
+  selectedDate,
+  setApplicationForm,
+  setFeedbackForm,
+  statusLabel,
+  submitApplication,
+  submitFeedback,
+}) {
+  return (
+    <aside className="detail">
+      <h2>{selectedDate || "날짜 선택"}</h2>
+      <div className="muted">월간 캘린더에서 날짜를 클릭하면 상세가 표시됩니다.</div>
+
+      {entry ? (
+        <>
+          <div className={`block day ${entry.status}`}>
+            <div className="block-label">
+              <span>낮 운영</span>
+              <span>{statusLabel(entry)}</span>
             </div>
+            <div className="detail-time">
+              {entry.open}-{entry.close}
+            </div>
+            {splitSlots(entry.person).map(slot => (
+              <div className="slot" key={slot}>
+                {slot}
+              </div>
+            ))}
           </div>
 
-          {/* ── Detail Panel ── */}
-          {sel && (
-            <div className="fi" style={{ width:316, flexShrink:0, background:C.surface, borderRadius:12, border:`1px solid ${C.border}`, padding:18, alignSelf:"flex-start" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:15 }}>
-                <div>
-                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:20 }}>{M+1}월 {sel}일</div>
-                  <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{DAYS[(fday+sel-1)%7]}요일</div>
-                </div>
-                <button onClick={() => { setSel(null); setEditing(false); }} style={{ background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.muted,lineHeight:1,padding:2 }}>×</button>
+          {entry.night && (
+            <div className="block night">
+              <div className="block-label night-text">
+                <span>야간 지기</span>
               </div>
-
-              {/* Day block */}
-              {selSch && !editing && (
-                <div style={{ background:schColor(selSch), borderRadius:10, padding:13, marginBottom:selSch.night||selSch.note?8:12 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:7 }}>
-                    <div>
-                      <div style={{ fontSize:10, color:dotColor(selSch), fontWeight:600, letterSpacing:0.5, marginBottom:3 }}>낮 운영</div>
-                      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:17, fontWeight:500 }}>{selSch.o} — {selSch.c}</div>
-                    </div>
-                    <span style={{ fontSize:10, padding:"3px 9px", borderRadius:12, background:dotColor(selSch), color:"#fff", fontWeight:600, flexShrink:0, marginLeft:8 }}>
-                      {selSch.s==="confirmed"?"확정":"검토중"}
-                    </span>
-                  </div>
-                  {selSch.p.split(" / ").map((slot,i) => (
-                    <div key={i} style={{ fontSize:12, color:C.muted, marginTop:i===0?4:3,
-                      paddingLeft:8, borderLeft:`2px solid ${dotColor(selSch)}`, lineHeight:1.45 }}>
-                      {slot}
-                    </div>
-                  ))}
-                  {selSch.open && <div style={{ fontSize:12, color:C.green, fontWeight:600, marginTop:8 }}>● 현재 오픈 중</div>}
-                </div>
-              )}
-
-              {/* Night block */}
-              {selSch?.night && !editing && (
-                <div style={{ background:C.night, border:`1px solid ${C.nightBorder}`, borderRadius:10, padding:13, marginBottom:selSch.note?8:12 }}>
-                  <div style={{ fontSize:10, color:C.nightText, fontWeight:600, letterSpacing:0.5, marginBottom:5 }}>야간 지기</div>
-                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:17, fontWeight:500, color:C.text }}>{selSch.night.o} — {selSch.night.c}</div>
-                  <div style={{ fontSize:12, color:C.muted, marginTop:3 }}>{selSch.night.p}</div>
-                </div>
-              )}
-
-              {/* Note */}
-              {selSch?.note && !editing && (
-                <div style={{ background:C.lightAmber, borderRadius:8, padding:"9px 11px", marginBottom:12, fontSize:12, color:C.amber, lineHeight:1.5 }}>
-                  ※ {selSch.note}
-                </div>
-              )}
-
-              {!selSch && !editing && (
-                <div style={{ background:"#F3EFE7", borderRadius:10, padding:14, marginBottom:12, textAlign:"center", color:C.muted, fontSize:13 }}>일정 없음</div>
-              )}
-
-              {/* Edit form */}
-              {editing && role==="manager" && (
-                <div style={{ marginBottom:12 }} className="fi">
-                  <div style={{ fontSize:11, color:C.primary, fontWeight:600, marginBottom:7 }}>낮 운영</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-                    <div><label style={{ fontSize:10, color:C.muted, display:"block", marginBottom:3 }}>오픈</label>
-                      <input type="time" value={ef.o} onChange={e => setEf(p => ({...p,o:e.target.value}))} style={inp}/></div>
-                    <div><label style={{ fontSize:10, color:C.muted, display:"block", marginBottom:3 }}>마감</label>
-                      <input type="time" value={ef.c} onChange={e => setEf(p => ({...p,c:e.target.value}))} style={inp}/></div>
-                  </div>
-                  <textarea value={ef.p} onChange={e => setEf(p => ({...p,p:e.target.value}))}
-                    placeholder={"담당자 (' / '로 구분)\n예: 새미 · 아영 / 추가지기 (13:00~)"} rows={2}
-                    style={{ ...inp, resize:"vertical", marginBottom:8 }}/>
-                  <select value={ef.s} onChange={e => setEf(p => ({...p,s:e.target.value}))} style={{ ...inp, marginBottom:12 }}>
-                    <option value="confirmed">확정</option>
-                    <option value="pending">검토중</option>
-                  </select>
-
-                  <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:10, marginBottom:10 }}>
-                    <label style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", fontSize:12, color:C.nightText, fontWeight:600, marginBottom:ef.hasNight?10:0 }}>
-                      <input type="checkbox" checked={ef.hasNight} onChange={e => setEf(p => ({...p,hasNight:e.target.checked}))} style={{ width:13,height:13 }}/>
-                      야간 지기 등록
-                    </label>
-                    {ef.hasNight && (
-                      <div>
-                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:7 }}>
-                          <div><label style={{ fontSize:10, color:C.muted, display:"block", marginBottom:3 }}>야간 시작</label>
-                            <input type="time" value={ef.no} onChange={e => setEf(p => ({...p,no:e.target.value}))} style={inp}/></div>
-                          <div><label style={{ fontSize:10, color:C.muted, display:"block", marginBottom:3 }}>야간 종료</label>
-                            <input type="time" value={ef.nc} onChange={e => setEf(p => ({...p,nc:e.target.value}))} style={inp}/></div>
-                        </div>
-                        <input value={ef.np} onChange={e => setEf(p => ({...p,np:e.target.value}))}
-                          placeholder="야간 지기 이름 (' · '로 구분)" style={inp}/>
-                      </div>
-                    )}
-                  </div>
-
-                  <textarea value={ef.note||""} onChange={e => setEf(p => ({...p,note:e.target.value}))}
-                    placeholder="메모 (선택)" rows={1} style={{ ...inp, resize:"vertical", marginBottom:10 }}/>
-
-                  <div style={{ display:"flex", gap:8, marginBottom:6 }}>
-                    <button onClick={save} style={{ ...btn(C.primary), flex:1 }}>저장</button>
-                    <button onClick={() => setEditing(false)} style={{ ...btn("#EDE8E0",C.muted), flex:1 }}>취소</button>
-                  </div>
-                  {selSch && <button onClick={del} style={{ ...btn("#FDF0F0",C.red), width:"100%", border:`1px solid ${C.red}` }}>일정 삭제</button>}
-                </div>
-              )}
-
-              {role==="manager" && !editing && (
-                <button onClick={() => setEditing(true)} style={{ ...btn(C.primary), width:"100%", marginBottom:14 }}>
-                  {selSch?"✏️ 수정":"+ 일정 추가"}
-                </button>
-              )}
-
-              {/* Apply (crew/daily) */}
-              {role!=="manager" && !applyDone && (
-                <div style={{ marginBottom:14, borderBottom:`1px solid ${C.border}`, paddingBottom:16 }}>
-                  <div style={{ fontSize:12, fontWeight:600, color:C.primary, marginBottom:10 }}>오픈 신청</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-                    <div><label style={{ fontSize:11, color:C.muted, display:"block", marginBottom:3 }}>오픈</label>
-                      <input type="time" value={af.o} onChange={e => setAf(p => ({...p,o:e.target.value}))} style={inp}/></div>
-                    <div><label style={{ fontSize:11, color:C.muted, display:"block", marginBottom:3 }}>마감</label>
-                      <input type="time" value={af.c} onChange={e => setAf(p => ({...p,c:e.target.value}))} style={inp}/></div>
-                  </div>
-                  <input value={af.name} onChange={e => setAf(p => ({...p,name:e.target.value}))} placeholder="이름" style={{ ...inp, marginBottom:8 }}/>
-                  <select value={af.role} onChange={e => setAf(p => ({...p,role:e.target.value}))} style={{ ...inp, marginBottom:8 }}>
-                    <option value="크루">크루</option><option value="일일지기">일일지기</option><option value="점주">점주</option>
-                  </select>
-                  <textarea value={af.note} onChange={e => setAf(p => ({...p,note:e.target.value}))} placeholder="전달 사항 (선택)" rows={2} style={{ ...inp, resize:"vertical", marginBottom:8 }}/>
-                  <button onClick={submitApp} disabled={!af.name} style={{ ...btn(af.name?C.primary:C.border), width:"100%" }}>신청하기</button>
-                </div>
-              )}
-              {role!=="manager" && applyDone && (
-                <div className="fi" style={{ background:C.lightGreen, borderRadius:8, padding:12, marginBottom:14, fontSize:13, color:C.green, fontWeight:500, textAlign:"center", borderBottom:`1px solid ${C.border}`, paddingBottom:16 }}>
-                  ✓ 신청 완료! 매니저 검토 후 반영됩니다.
-                </div>
-              )}
-
-              {/* Feedback */}
-              <div>
-                <div style={{ fontSize:12, fontWeight:600, color:C.primary, marginBottom:10 }}>
-                  피드백{(selSch?.fb?.length||0)>0?` (${selSch.fb.length})`:""}
-                </div>
-                {selSch?.fb?.length>0 && (
-                  <div style={{ marginBottom:12 }}>
-                    {selSch.fb.map((f,i) => (
-                      <div key={i} style={{ background:C.bg, borderRadius:8, padding:10, marginBottom:6 }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3, fontSize:11 }}>
-                          <span style={{ fontWeight:600 }}>{f.author} <span style={{ color:C.muted, fontWeight:400 }}>({f.role})</span></span>
-                          <span style={{ color:C.muted }}>{f.date}</span>
-                        </div>
-                        <div style={{ fontSize:12, lineHeight:1.55 }}>{f.text}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {fbDone && <div className="fi" style={{ background:C.lightGreen, borderRadius:6, padding:"8px 12px", marginBottom:8, fontSize:12, color:C.green }}>✓ 피드백이 등록되었습니다</div>}
-                {!fbDone && (<>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-                    <input value={ff.author} onChange={e => setFf(p => ({...p,author:e.target.value}))} placeholder="이름" style={inp}/>
-                    <select value={ff.role} onChange={e => setFf(p => ({...p,role:e.target.value}))} style={inp}>
-                      <option value="크루">크루</option><option value="일일지기">일일지기</option>
-                      <option value="점주">점주</option><option value="매니저">매니저</option>
-                    </select>
-                  </div>
-                  <textarea value={ff.text} onChange={e => setFf(p => ({...p,text:e.target.value}))} placeholder="운영 피드백을 남겨주세요..." rows={3} style={{ ...inp, resize:"vertical", marginBottom:8 }}/>
-                  <button onClick={submitFb} disabled={!ff.text||!ff.author} style={{ ...btn(!ff.text||!ff.author?C.border:"#EDE8E0",C.primary), width:"100%", fontWeight:500 }}>피드백 남기기</button>
-                </>)}
+              <div className="detail-time">
+                {entry.night.open}-{entry.night.close}
               </div>
+              <div className="slot">{entry.night.person}</div>
             </div>
           )}
-        </>)}
 
-        {/* ═══ APPS TAB ═══ */}
-        {tab==="apps" && role==="manager" && (
-          <div style={{ flex:1 }} className="fi">
-            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:21, marginBottom:20 }}>신청 관리</div>
-            <div style={{ marginBottom:28 }}>
-              <div style={{ fontSize:13, fontWeight:600, color:C.primary, marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
-                대기 중
-                {pendingCount>0 && <span style={{ background:C.amber, color:"#fff", borderRadius:12, fontSize:11, padding:"2px 8px" }}>{pendingCount}</span>}
-              </div>
-              {pendingCount===0 && (
-                <div style={{ background:C.surface, borderRadius:10, padding:24, textAlign:"center", color:C.muted, fontSize:13, border:`1px solid ${C.border}` }}>대기 중인 신청이 없습니다</div>
-              )}
-              {apps.filter(a => a.status==="pending").map(a => (
-                <div key={a.id} style={{ background:C.surface, borderRadius:10, padding:16, marginBottom:10, border:`1px solid ${C.border}` }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                    <div>
-                      <div style={{ fontWeight:600, fontSize:14 }}>{a.date} <span style={{ color:C.muted, fontWeight:400, fontSize:12 }}>— {a.name} ({a.role})</span></div>
-                      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:15, color:C.primary, marginTop:4 }}>{a.o} — {a.c}</div>
-                      <div style={{ fontSize:11, color:C.muted, marginTop:3 }}>신청일: {a.at}</div>
-                    </div>
-                    <span style={{ fontSize:10, background:C.lightAmber, color:C.amber, padding:"3px 9px", borderRadius:12, fontWeight:600, flexShrink:0 }}>대기중</span>
-                  </div>
-                  {a.note && <div style={{ fontSize:12, color:C.muted, background:C.bg, borderRadius:6, padding:"8px 10px", marginBottom:12, lineHeight:1.5 }}>{a.note}</div>}
-                  <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={() => approve(a.id)} style={{ ...btn(C.green), flex:1 }}>✓ 승인</button>
-                    <button onClick={() => reject(a.id)} style={{ ...btn("#FDF0F0",C.red), flex:1, border:`1px solid ${C.red}` }}>✗ 반려</button>
-                  </div>
-                </div>
-              ))}
+          {entry.memo && (
+            <div className="block">
+              <div className="block-label">메모</div>
+              <div className="memo">{entry.memo}</div>
             </div>
-            {apps.filter(a => a.status!=="pending").length>0 && (
-              <div>
-                <div style={{ fontSize:13, fontWeight:600, color:C.muted, marginBottom:12 }}>처리 완료</div>
-                {apps.filter(a => a.status!=="pending").map(a => (
-                  <div key={a.id} style={{ background:C.surface, borderRadius:10, padding:14, marginBottom:8, border:`1px solid ${C.border}`, opacity:0.6 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <div>
-                        <div style={{ fontSize:13, fontWeight:500 }}>{a.date} — {a.name} <span style={{ color:C.muted, fontWeight:400 }}>({a.role})</span></div>
-                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:C.muted, marginTop:3 }}>{a.o}–{a.c}</div>
-                      </div>
-                      <span style={{ fontSize:10, padding:"3px 9px", borderRadius:12, fontWeight:600,
-                        background:a.status==="approved"?C.lightGreen:"#FDF0F0", color:a.status==="approved"?C.green:C.red }}>
-                        {a.status==="approved"?"승인":"반려"}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+          )}
+        </>
+      ) : (
+        <div className="block muted">선택한 날짜에 등록된 일정이 없습니다.</div>
+      )}
+
+      <div className="block">
+        <div className="block-label">피드백</div>
+        <div className="form-grid">
+          <input
+            className="field"
+            onChange={event => setFeedbackForm(prev => ({ ...prev, author: event.target.value }))}
+            placeholder="이름"
+            value={feedbackForm.author}
+          />
+          <select
+            className="field"
+            onChange={event => setFeedbackForm(prev => ({ ...prev, role: event.target.value }))}
+            value={feedbackForm.role}
+          >
+            <option>크루</option>
+            <option>일일지기</option>
+            <option>매니저</option>
+          </select>
+        </div>
+        <textarea
+          className="field"
+          onChange={event => setFeedbackForm(prev => ({ ...prev, text: event.target.value }))}
+          placeholder="운영 피드백을 남겨주세요."
+          rows={3}
+          value={feedbackForm.text}
+        />
+        <button className="solid-btn" onClick={submitFeedback} style={{ marginTop: 8, width: "100%" }}>
+          피드백 등록
+        </button>
+        {feedback.length > 0 && (
+          <div className="feedback-list">
+            {feedback.map(item => (
+              <div className="feedback-item" key={item.id}>
+                <strong>
+                  {item.author} · {item.role}
+                </strong>
+                <div className="muted">{item.createdAt}</div>
+                <div>{item.text}</div>
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>
-    </div>
+
+      {role !== "manager" && (
+        <form className="block" onSubmit={submitApplication}>
+          <div className="block-label">운영 신청</div>
+          <input
+            className="field"
+            onChange={event => setApplicationForm(prev => ({ ...prev, name: event.target.value }))}
+            placeholder="이름"
+            value={applicationForm.name}
+          />
+          <div className="form-grid" style={{ marginTop: 8 }}>
+            <select
+              className="field"
+              onChange={event => setApplicationForm(prev => ({ ...prev, role: event.target.value }))}
+              value={applicationForm.role}
+            >
+              <option>크루</option>
+              <option>일일지기</option>
+            </select>
+            <input
+              className="field"
+              onChange={event => setApplicationForm(prev => ({ ...prev, time: event.target.value }))}
+              placeholder="가능 시간"
+              value={applicationForm.time}
+            />
+          </div>
+          <textarea
+            className="field"
+            onChange={event => setApplicationForm(prev => ({ ...prev, note: event.target.value }))}
+            placeholder="메모"
+            rows={2}
+            style={{ marginTop: 8 }}
+            value={applicationForm.note}
+          />
+          <button className="solid-btn" style={{ marginTop: 8, width: "100%" }} type="submit">
+            신청하기
+          </button>
+        </form>
+      )}
+    </aside>
+  );
+}
+
+function Applications({ applications, approveApplication, rejectApplication }) {
+  const pending = applications.filter(app => app.status === "pending");
+  const completed = applications.filter(app => app.status !== "pending");
+
+  return (
+    <section className="apps">
+      <h2>신청 관리</h2>
+      <p className="muted">크루/일일지기 역할에서 등록한 신청을 승인하거나 반려합니다.</p>
+
+      <div className="apps-list">
+        {pending.length === 0 && <div className="status-card">대기 중인 신청이 없습니다.</div>}
+        {pending.map(app => (
+          <div className="application-card" key={app.id}>
+            <div>
+              <strong>
+                {app.date} · {app.name} ({app.role})
+              </strong>
+              <div className="mono">{app.time || "시간 미입력"}</div>
+              {app.note && <div className="memo">{app.note}</div>}
+              <div className="muted">신청일 {app.createdAt}</div>
+            </div>
+            <div className="app-actions">
+              <button className="solid-btn" onClick={() => approveApplication(app.id)}>
+                승인
+              </button>
+              <button className="ghost-btn danger" onClick={() => rejectApplication(app.id)}>
+                반려
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {completed.length > 0 && (
+        <div className="apps-list">
+          <div className="block-label">처리 완료</div>
+          {completed.map(app => (
+            <div className="application-card" key={app.id}>
+              <div>
+                <strong>
+                  {app.date} · {app.name} ({app.role})
+                </strong>
+                <div className="muted">{app.status === "approved" ? "승인됨" : "반려됨"}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

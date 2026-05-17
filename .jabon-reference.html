@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>〈배달완료〉 v3.0</title>
+<style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+:root {
+  --bg:#0d0d0d; --s1:#1a1a1a; --s2:#222; --bd:#333;
+  --acc:#e53935; --acc2:#ff6b6b;
+  --p1:#1e88e5; --p1b:#0d47a1;
+  --p2:#43a047; --p2b:#1b5e20;
+  --p3:#ab47bc; --p3b:#6a1b9a;
+  --yl:#ffb300; --or:#fb8c00; --gr:#888; --lg:#ccc; --wh:#f5f5f5;
+  --gold:#f9a825; --red:#c62828;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--wh);overflow-x:hidden;}
+
+/* ── 인트로 ── */
+#intro{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;transition:opacity .5s;}
+#intro.hide{opacity:0;pointer-events:none;}
+.i-bar{width:4px;height:56px;background:var(--acc);margin-bottom:20px;}
+.i-title{font-size:clamp(36px,7vw,80px);font-weight:900;color:var(--wh);text-align:center;}
+.i-title em{color:var(--acc);font-style:normal;}
+.i-sub{font-size:16px;color:var(--gr);margin-top:10px;text-align:center;}
+.setup{margin-top:28px;background:var(--s1);border:1px solid var(--bd);padding:24px 32px;max-width:440px;width:90%;}
+.setup-ttl{font-size:11px;color:var(--acc);letter-spacing:3px;margin-bottom:14px;font-weight:700;}
+.setup-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.setup-lbl{font-size:14px;color:var(--lg);}
+.cnt{display:flex;align-items:center;gap:10px;}
+.cnt button{width:30px;height:30px;background:var(--s2);border:1px solid var(--bd);color:var(--wh);font-size:18px;cursor:pointer;}
+.cnt button:hover{border-color:var(--acc);color:var(--acc);}
+.cnt-v{font-size:22px;font-weight:700;min-width:24px;text-align:center;}
+.btn-start{width:100%;margin-top:8px;padding:15px;background:var(--acc);color:#fff;border:none;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;}
+.btn-start:hover{background:var(--acc2);}
+
+/* ── 앱 ── */
+#app{display:none;min-height:100vh;flex-direction:column;}
+#app.on{display:flex;}
+
+/* ── 헤더 ── */
+header{background:var(--s1);border-bottom:2px solid var(--acc);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;position:sticky;top:0;z-index:200;}
+.h-title{font-size:18px;font-weight:900;}
+.h-title em{color:var(--acc);font-style:normal;}
+.htags{display:flex;gap:6px;flex-wrap:wrap;}
+.htag{background:var(--s2);border:1px solid var(--bd);padding:3px 9px;font-size:11px;color:var(--gr);font-weight:600;letter-spacing:1px;}
+.htag.hi{border-color:var(--acc);color:var(--acc);}
+
+/* ── 페이즈 배너 ── */
+.pbanner{background:linear-gradient(90deg,rgba(229,57,53,.2),transparent 70%);padding:7px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd);flex-wrap:wrap;gap:4px;}
+.pb-phase{font-size:10px;color:var(--acc);letter-spacing:3px;font-weight:700;}
+.pb-name{font-size:14px;font-weight:700;}
+.pb-round{font-size:12px;color:var(--gr);}
+
+/* ── 3열 그리드 ── */
+.grid3{display:grid;grid-template-columns:260px 1fr 290px;flex:1;min-height:0;}
+
+/* ── 라이더 패널 (왼쪽) ── */
+.lpanel{background:var(--s1);border-right:1px solid var(--bd);overflow-y:auto;max-height:calc(100vh - 88px);}
+.rcard{padding:12px 14px;border-bottom:1px solid var(--bd);position:relative;cursor:pointer;}
+.rcard.active-r{background:rgba(255,255,255,.04);}
+.rcard .accent-bar{position:absolute;left:0;top:0;bottom:0;width:3px;}
+.rname{font-size:13px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.rtag{font-size:10px;padding:2px 6px;font-weight:700;}
+.stat-r{display:flex;justify-content:space-between;margin-bottom:4px;}
+.sl{font-size:11px;color:var(--gr);}
+.sv{font-size:13px;font-weight:700;font-family:monospace;}
+.mini-bar{width:100%;height:4px;background:var(--bd);margin-bottom:5px;}
+.mini-fill{height:100%;transition:width .4s,background .4s;}
+.r-zone{font-size:10px;color:var(--gr);margin-top:3px;}
+.r-elim{opacity:.4;}
+
+/* ── 가운데 보드 ── */
+.mcol{display:flex;flex-direction:column;overflow-y:auto;max-height:calc(100vh - 88px);}
+.board-wrap{padding:14px 14px 0;}
+.board-lbl{font-size:10px;color:var(--gr);letter-spacing:2px;margin-bottom:8px;font-weight:600;}
+.board-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:10px;}
+.zone{background:var(--s2);border:1px solid var(--bd);padding:8px 6px;min-height:80px;display:flex;flex-direction:column;gap:2px;position:relative;transition:.2s;}
+.zone.pulse{animation:zpulse 1.4s ease-in-out infinite;}
+@keyframes zpulse{0%,100%{border-color:var(--bd);}50%{border-color:var(--yl);box-shadow:0 0 10px rgba(255,179,0,.3);}}
+.zid{font-size:8px;color:var(--gr);font-weight:700;}
+.zname{font-size:11px;font-weight:700;line-height:1.3;}
+.ztag{font-size:9px;color:var(--gr);}
+.zdots{position:absolute;bottom:4px;right:4px;display:flex;gap:2px;}
+.zdot{width:9px;height:9px;border-radius:50%;}
+.zcall{position:absolute;top:4px;right:4px;background:var(--p2b);color:#fff;font-size:8px;font-weight:700;padding:1px 4px;}
+
+/* ── 트랙 ── */
+.tracks{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 14px 10px;}
+.tbox{background:var(--s2);border:1px solid var(--bd);padding:8px 10px;}
+.tname{font-size:9px;color:var(--gr);margin-bottom:5px;letter-spacing:1px;font-weight:600;}
+.tbar{height:6px;background:var(--bd);}
+.tfill{height:100%;transition:width .5s;}
+.tval{font-size:16px;font-weight:900;margin-top:3px;font-family:monospace;}
+
+/* ── 라운드 설명 카드 ── */
+.round-card-area{padding:0 14px 10px;}
+.rc{background:#0d0d0d;border:1px solid var(--bd);padding:12px 14px;position:relative;}
+.rc::after{content:'ROUND CARD';position:absolute;top:8px;right:10px;font-size:8px;color:var(--gr);letter-spacing:3px;}
+.rc-bar{height:3px;margin-bottom:9px;}
+.rc-round{font-size:10px;color:var(--gr);letter-spacing:2px;font-weight:700;}
+.rc-phase{font-size:15px;font-weight:700;margin:3px 0;}
+.rc-story{font-size:12px;color:var(--lg);line-height:1.7;font-style:italic;}
+
+/* ── 주사위 순위 ── */
+.dice-area{padding:0 14px 10px;}
+.dice-ttl{font-size:10px;color:var(--yl);letter-spacing:2px;font-weight:700;margin-bottom:8px;}
+.dice-riders{display:flex;gap:6px;}
+.dice-card{flex:1;background:var(--s2);border:1px solid var(--bd);padding:8px;text-align:center;}
+.dc-name{font-size:11px;font-weight:700;margin-bottom:4px;}
+.dc-roll{font-size:24px;font-weight:900;font-family:monospace;margin-bottom:3px;}
+.dc-rank{font-size:10px;padding:2px 6px;display:inline-block;font-weight:700;}
+
+/* ── 번호표 ── */
+.numplate-area{padding:0 14px 10px;}
+.np-ttl{font-size:10px;color:var(--yl);letter-spacing:2px;font-weight:700;margin-bottom:8px;}
+.numplates{display:flex;gap:8px;}
+.np{flex:1;padding:12px 6px;text-align:center;border:2px solid var(--bd);}
+.np-num{font-size:32px;font-weight:900;}
+.np-name{font-size:11px;margin-top:4px;font-weight:700;}
+
+/* ── 콜 경쟁 풀 ── */
+.call-pool-area{padding:0 14px 10px;}
+.cp-ttl{font-size:10px;color:var(--yl);letter-spacing:2px;font-weight:700;margin-bottom:8px;}
+.call-pool{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.citem{background:rgba(27,94,32,.15);border:1px solid rgba(67,160,71,.3);padding:9px;cursor:pointer;transition:.2s;position:relative;}
+.citem:hover{border-color:var(--p2);background:rgba(27,94,32,.3);}
+.citem.claimed{opacity:.5;cursor:not-allowed;border-color:var(--bd);}
+.ci-name{font-size:12px;font-weight:700;margin-bottom:3px;}
+.ci-pay{font-size:15px;font-weight:900;color:var(--p2);}
+.ci-info{font-size:10px;color:var(--gr);}
+.ci-warn{font-size:10px;color:var(--acc2);margin-top:2px;}
+.ci-who{position:absolute;top:4px;right:6px;font-size:10px;font-weight:700;}
+
+/* ── 로그 ── */
+.log-area{padding:0 14px 12px;flex:1;}
+.log-lbl{font-size:10px;color:var(--gr);letter-spacing:2px;font-weight:600;margin-bottom:6px;}
+.logbox{background:#080808;border:1px solid var(--bd);height:160px;overflow-y:auto;padding:9px 10px;font-size:11px;line-height:1.6;}
+.ll.good{color:#43a047;} .ll.bad{color:#ef5350;} .ll.info{color:var(--yl);}
+.ll.algo{color:var(--or);} .ll.sys{color:var(--gr);} .ll.compete{color:var(--p3);}
+.ll.gold{color:var(--gold);} .ll.penalty{color:var(--red);}
+
+/* ── 오른쪽 액션 패널 ── */
+.rpanel{background:var(--s1);border-left:1px solid var(--bd);display:flex;flex-direction:column;overflow-y:auto;max-height:calc(100vh - 88px);}
+.ap-sec{padding:12px 14px;border-bottom:1px solid var(--bd);}
+.ap-ttl{font-size:10px;color:var(--acc);letter-spacing:3px;font-weight:700;margin-bottom:9px;}
+
+/* ── 현재 턴 표시 ── */
+.cur-box{background:var(--s2);padding:12px;border:1px solid var(--bd);position:relative;overflow:hidden;}
+.cur-lbl{font-size:9px;color:var(--gr);letter-spacing:2px;margin-bottom:5px;font-weight:600;}
+.cur-name{font-size:20px;font-weight:900;}
+.cur-step{font-size:11px;color:var(--lg);margin-top:3px;}
+.cur-bar{position:absolute;bottom:0;left:0;height:3px;width:100%;}
+
+/* ── 핸드카드 ── */
+.hand-list{display:flex;flex-direction:column;gap:5px;}
+.hcard{background:var(--s2);border:1px solid var(--bd);padding:8px;cursor:pointer;transition:.2s;position:relative;overflow:hidden;}
+.hcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.hcard.opt::before{background:var(--p1);}
+.hcard.sol::before{background:var(--yl);}
+.hcard.pen::before{background:var(--red);}
+.hcard.gd::before{background:var(--gold);}
+.hcard:hover{border-color:var(--lg);transform:translateX(2px);}
+.hcard.sel{border-color:var(--acc);box-shadow:0 0 8px rgba(229,57,53,.3);}
+.hcard.must-use{border-color:var(--yl) !important;box-shadow:0 0 6px rgba(255,179,0,.3);}
+.hc-type{font-size:8px;color:var(--gr);letter-spacing:2px;font-weight:700;margin-bottom:2px;}
+.hc-name{font-size:12px;font-weight:700;}
+.hc-eff{font-size:10px;color:var(--lg);margin-top:2px;line-height:1.4;}
+.hc-risk{font-size:9px;color:var(--acc2);margin-top:2px;}
+.must-badge{font-size:9px;color:var(--yl);font-weight:700;margin-top:3px;}
+
+/* ── 버튼 ── */
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.btn{background:var(--s2);border:1px solid var(--bd);color:var(--wh);padding:9px 5px;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit;text-align:center;line-height:1.4;}
+.btn:hover:not(:disabled){border-color:var(--acc);color:var(--acc);background:rgba(229,57,53,.08);}
+.btn:disabled{opacity:.28;cursor:not-allowed;}
+.btn.pri{background:var(--acc);color:#fff;border-color:var(--acc);}
+.btn.pri:hover:not(:disabled){background:var(--acc2);}
+.btn.grn{background:var(--p2b);border-color:var(--p2);}
+.btn.yl{background:rgba(255,179,0,.1);border-color:var(--yl);color:var(--yl);}
+.btn.gd{background:rgba(249,168,37,.1);border-color:var(--gold);color:var(--gold);}
+.btn.wide{grid-column:1/-1;}
+
+/* ── 연대 ── */
+.sol-btns{display:flex;flex-direction:column;gap:5px;}
+
+/* ── 모달 ── */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;}
+.ov.show{opacity:1;pointer-events:all;}
+.modal{background:var(--s1);border:1px solid var(--bd);max-width:480px;width:90%;padding:22px;max-height:88vh;overflow-y:auto;transform:translateY(12px);transition:transform .3s;}
+.ov.show .modal{transform:translateY(0);}
+.modal-ttl{font-size:18px;font-weight:900;color:var(--wh);margin-bottom:14px;padding-bottom:9px;border-bottom:2px solid var(--acc);}
+.srow{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd);}
+.slbl{font-size:12px;color:var(--lg);}
+.sval{font-size:14px;font-weight:700;font-family:monospace;}
+.sval.p{color:#43a047;} .sval.m{color:#ef5350;}
+.stotal{display:flex;justify-content:space-between;padding:10px 0 0;}
+.stlbl{font-size:14px;font-weight:700;}
+.stval{font-size:22px;font-weight:900;font-family:monospace;}
+.stval.ok{color:#43a047;} .stval.ng{color:var(--acc);}
+.smsg{margin-top:10px;padding:9px 11px;font-size:12px;line-height:1.6;border-left:3px solid var(--acc);}
+
+/* ── 주사위 굴리기 모달 ── */
+.dice-modal .modal{max-width:560px;}
+.dice-results{display:flex;gap:10px;margin:14px 0;}
+.dr{flex:1;background:var(--s2);border:1px solid var(--bd);padding:14px;text-align:center;}
+.dr-name{font-size:12px;font-weight:700;margin-bottom:6px;}
+.dr-dice{font-size:36px;font-weight:900;font-family:monospace;margin-bottom:4px;}
+.dr-rank{font-size:11px;padding:3px 8px;font-weight:700;display:inline-block;margin-top:4px;}
+
+/* ── 라운드 카드 모달 ── */
+.rc-modal .modal{max-width:500px;}
+.rc-big{padding:20px;border:1px solid var(--bd);margin-bottom:14px;position:relative;}
+.rcb-round{font-size:10px;letter-spacing:3px;font-weight:700;margin-bottom:6px;}
+.rcb-phase{font-size:22px;font-weight:900;margin-bottom:10px;}
+.rcb-story{font-size:14px;color:var(--lg);line-height:1.8;font-style:italic;margin-bottom:12px;}
+.rcb-cards{font-size:11px;color:var(--gr);}
+
+/* ── 카드 획득 모달 ── */
+.card-grant-modal .modal{max-width:480px;}
+.grant-cards{display:flex;flex-direction:column;gap:6px;margin:10px 0;}
+.gc{padding:10px 12px;border:1px solid var(--bd);position:relative;overflow:hidden;}
+.gc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.gc.gd::before{background:var(--gold);}
+.gc.pen::before{background:var(--red);}
+.gc-type{font-size:9px;letter-spacing:2px;font-weight:700;margin-bottom:3px;}
+.gc-name{font-size:14px;font-weight:700;}
+.gc-eff{font-size:12px;color:var(--lg);margin-top:3px;}
+
+/* ── 결과 ── */
+#result{position:fixed;inset:0;background:var(--bg);z-index:900;display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:36px 20px;overflow-y:auto;}
+#result.show{display:flex;}
+.r-ttl{font-size:clamp(28px,5vw,56px);font-weight:900;text-align:center;margin-bottom:6px;}
+.r-sub{font-size:16px;color:var(--acc);text-align:center;font-style:italic;margin-bottom:28px;}
+.r-riders{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:880px;margin-bottom:24px;}
+.rres{background:var(--s1);border:1px solid var(--bd);padding:18px 22px;flex:1;min-width:180px;max-width:260px;}
+.rres-name{font-size:13px;font-weight:700;margin-bottom:10px;}
+.rres-stat{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;}
+.r-scores{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;max-width:700px;margin-bottom:24px;}
+.rscore{background:var(--s1);border:1px solid var(--bd);padding:18px;text-align:center;flex:1;min-width:160px;}
+.rsc-lbl{font-size:9px;color:var(--gr);letter-spacing:3px;margin-bottom:8px;font-weight:600;}
+.rsc-v{font-size:34px;font-weight:900;margin-bottom:5px;font-family:monospace;}
+.rsc-d{font-size:11px;color:var(--lg);}
+.r-discuss{max-width:660px;width:100%;background:var(--s1);border:1px solid var(--acc);padding:18px;margin-bottom:20px;}
+.rdq{padding:6px 0;border-bottom:1px solid var(--bd);font-size:13px;color:var(--lg);line-height:1.6;}
+
+/* ── 토스트 ── */
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--s1);border:1px solid var(--bd);border-left:4px solid var(--acc);padding:9px 18px;font-size:13px;font-weight:700;z-index:9999;transition:transform .3s;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-track{background:var(--bg);} ::-webkit-scrollbar-thumb{background:var(--bd);}
+</style>
+</head>
+<body>
+
+<!-- ═══ 인트로 ═══ -->
+<div id="intro">
+  <div class="i-bar"></div>
+  <div class="i-title">〈<em>배달완료</em>〉</div>
+  <div class="i-sub">플랫폼 노동 시리어스 게임 v3.0 | Zoom 발표 시연판</div>
+  <div class="setup">
+    <div class="setup-ttl">GAME SETUP</div>
+    <div class="setup-row">
+      <div class="setup-lbl">라이더 수</div>
+      <div class="cnt">
+        <button onclick="chgN(-1)">−</button>
+        <div class="cnt-v" id="cnt-v">2</div>
+        <button onclick="chgN(1)">+</button>
+      </div>
+    </div>
+    <div class="setup-row">
+      <div class="setup-lbl">초기 핸드카드</div>
+      <div class="cnt">
+        <button onclick="chgH(-1)">−</button>
+        <div class="cnt-v" id="cnt-h">3</div>
+        <button onclick="chgH(1)">+</button>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--gr);margin-bottom:10px;line-height:1.7">
+      한 화면에서 번갈아 조작합니다.<br>
+      매 라운드 주사위로 순위를 정하고 번호표를 배치합니다.<br>
+      매 턴 핸드카드 1장 의무 사용.
+    </div>
+    <button class="btn-start" onclick="startGame()">배달 시작하기 ▶</button>
+  </div>
+</div>
+
+<!-- ═══ 메인 앱 ═══ -->
+<div id="app">
+  <header>
+    <div class="h-title">〈<em>배달완료</em>〉 <span style="font-size:13px;color:var(--gr);font-weight:400">v3.0</span></div>
+    <div class="htags">
+      <span class="htag" id="h-round">R1/8</span>
+      <span class="htag hi" id="h-turn">—</span>
+      <span class="htag" id="h-step">대기</span>
+      <span class="htag" id="h-platform">플랫폼:0</span>
+    </div>
+  </header>
+  <div class="pbanner">
+    <div>
+      <div class="pb-phase" id="pb-phase">PHASE 1</div>
+      <div class="pb-name" id="pb-name">허니문 — 자유의 착시</div>
+    </div>
+    <div class="pb-round" id="pb-round">ROUND 1 / 8</div>
+  </div>
+
+  <div class="grid3">
+    <!-- 왼쪽: 라이더 패널 -->
+    <div class="lpanel" id="lpanel"></div>
+
+    <!-- 가운데 -->
+    <div class="mcol">
+      <!-- 보드 -->
+      <div class="board-wrap">
+        <div class="board-lbl">CITY MAP — 콜 있는 구역 깜박임</div>
+        <div class="board-grid" id="board-grid"></div>
+      </div>
+      <!-- 트랙 -->
+      <div class="tracks">
+        <div class="tbox">
+          <div class="tname">플랫폼 이익</div>
+          <div class="tbar"><div class="tfill" id="tf-platform" style="background:var(--acc);width:0%"></div></div>
+          <div class="tval" id="tv-platform" style="color:var(--acc)">0/50</div>
+        </div>
+        <div class="tbox">
+          <div class="tname">연대 게이지</div>
+          <div class="tbar"><div class="tfill" id="tf-sol" style="background:var(--yl);width:0%"></div></div>
+          <div class="tval" id="tv-sol" style="color:var(--yl)">0/10</div>
+        </div>
+        <div class="tbox">
+          <div class="tname">시장 수요</div>
+          <div class="tbar"><div class="tfill" id="tf-demand" style="background:var(--p1);width:50%"></div></div>
+          <div class="tval" id="tv-demand" style="color:var(--p1)">중(中)</div>
+        </div>
+      </div>
+      <!-- 라운드 카드 -->
+      <div class="round-card-area">
+        <div class="rc" id="round-card">
+          <div class="rc-bar" style="background:var(--p2)"></div>
+          <div class="rc-round">ROUND —</div>
+          <div class="rc-phase" style="color:var(--wh)">라운드 시작 전</div>
+          <div class="rc-story">라운드 카드를 확인하세요.</div>
+        </div>
+      </div>
+      <!-- 번호표 -->
+      <div class="numplate-area">
+        <div class="np-ttl">📋 선점 순위 번호표</div>
+        <div class="numplates" id="numplates"></div>
+      </div>
+      <!-- 콜 경쟁 풀 -->
+      <div class="call-pool-area">
+        <div class="cp-ttl">📱 CALL POOL — 순위대로 수락</div>
+        <div class="call-pool" id="call-pool"><div style="font-size:12px;color:var(--gr);padding:14px;grid-column:1/-1;text-align:center">콜 공개 버튼을 누르세요</div></div>
+      </div>
+      <!-- 로그 -->
+      <div class="log-area">
+        <div class="log-lbl">GAME LOG</div>
+        <div class="logbox" id="logbox"></div>
+      </div>
+    </div>
+
+    <!-- 오른쪽: 액션 패널 -->
+    <div class="rpanel">
+      <!-- 현재 턴 -->
+      <div class="ap-sec">
+        <div class="ap-ttl">CURRENT TURN</div>
+        <div class="cur-box" id="cur-box">
+          <div class="cur-lbl">NOW PLAYING</div>
+          <div class="cur-name" id="cur-name">—</div>
+          <div class="cur-step" id="cur-step">—</div>
+          <div class="cur-bar" id="cur-bar"></div>
+        </div>
+      </div>
+      <!-- 핸드카드 -->
+      <div class="ap-sec">
+        <div class="ap-ttl">HAND CARDS <span id="hand-cnt" style="color:var(--gr)"></span></div>
+        <div id="must-warn" style="font-size:11px;color:var(--yl);font-weight:700;margin-bottom:6px;display:none">⚡ 이번 턴 반드시 1장 사용해야 합니다</div>
+        <div class="hand-list" id="hand-list"></div>
+        <button class="btn wide" id="btn-usecard" style="margin-top:6px" onclick="useCard()" disabled>선택 카드 사용</button>
+      </div>
+      <!-- 액션 -->
+      <div class="ap-sec">
+        <div class="ap-ttl">ACTIONS</div>
+        <div class="btns">
+          <button class="btn pri wide" id="btn-roundcard" onclick="showRoundCard()">📋 라운드 카드 확인</button>
+          <button class="btn wide" id="btn-dice" onclick="showDiceRoll()">🎲 콜 선점 주사위</button>
+          <button class="btn" id="btn-algo" onclick="doAlgo()" disabled>🔲 알고리즘 카드</button>
+          <button class="btn" id="btn-roll" onclick="doMove()" disabled>🛞 이동하기</button>
+          <button class="btn" id="btn-showcall" onclick="doShowCalls()" disabled>📱 콜 공개</button>
+          <button class="btn grn" id="btn-deliver" onclick="doDeliver()" disabled>🛵 배달 실행</button>
+          <button class="btn" id="btn-settle" onclick="doSettle()" disabled>💰 정산하기</button>
+          <button class="btn yl" onclick="doCallRefuse()">🚫 콜 거부</button>
+          <button class="btn wide" id="btn-next" onclick="doNext()" disabled>다음 → <span id="next-lbl"></span></button>
+        </div>
+      </div>
+      <!-- 연대 -->
+      <div class="ap-sec">
+        <div class="ap-ttl">SOLIDARITY</div>
+        <div class="sol-btns">
+          <button class="btn" onclick="doSol(0)">단체 항의 (게이지 5↑)</button>
+          <button class="btn" onclick="doSol(1)">집단 로그아웃 (7↑)</button>
+          <button class="btn" onclick="doSol(2)">파업 선언 (10)</button>
+        </div>
+      </div>
+      <!-- 턴 요약 -->
+      <div class="ap-sec" style="flex:1">
+        <div class="ap-ttl">이번 턴 요약</div>
+        <div id="turn-summary" style="font-size:12px;color:var(--lg);line-height:1.8;min-height:50px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 정산 모달 ═══ -->
+<div class="ov" id="settle-ov">
+  <div class="modal">
+    <div class="modal-ttl" id="settle-ttl">💰 정산 내역</div>
+    <div id="settle-rows"></div>
+    <div class="stotal">
+      <div class="stlbl">실수익</div>
+      <div class="stval" id="settle-final">₩0</div>
+    </div>
+    <div class="smsg" id="settle-msg"></div>
+    <button class="btn pri wide" style="margin-top:12px" onclick="closeOv('settle-ov');confirmSettle()">확인 — 다음으로</button>
+  </div>
+</div>
+
+<!-- ═══ 주사위 모달 ═══ -->
+<div class="ov dice-modal" id="dice-ov">
+  <div class="modal">
+    <div class="modal-ttl">🎲 콜 선점 주사위</div>
+    <div style="font-size:12px;color:var(--lg);margin-bottom:12px">합산값이 높은 라이더가 콜 선점 1순위가 됩니다. 동점 시 추가 1d6으로 결판.</div>
+    <div class="dice-results" id="dice-results"></div>
+    <div id="dice-rank-explain" style="font-size:12px;color:var(--lg);margin-bottom:14px;line-height:1.7"></div>
+    <button class="btn pri wide" id="btn-reroll" onclick="rollAllDice()">🎲 주사위 굴리기</button>
+    <button class="btn wide" id="btn-confirm-dice" style="margin-top:6px;display:none" onclick="confirmDice()">이 순위로 확정</button>
+  </div>
+</div>
+
+<!-- ═══ 라운드 카드 모달 ═══ -->
+<div class="ov rc-modal" id="rc-ov">
+  <div class="modal">
+    <div class="modal-ttl">📋 라운드 설명 카드</div>
+    <div class="rc-big" id="rc-big"></div>
+    <button class="btn pri wide" onclick="closeOv('rc-ov');afterRoundCard()">확인 — 주사위 굴리기로</button>
+  </div>
+</div>
+
+<!-- ═══ 카드 획득 모달 ═══ -->
+<div class="ov card-grant-modal" id="grant-ov">
+  <div class="modal">
+    <div class="modal-ttl" id="grant-ttl">카드 획득</div>
+    <div class="grant-cards" id="grant-cards"></div>
+    <button class="btn pri wide" style="margin-top:10px" onclick="closeOv('grant-ov');afterGrant()">확인</button>
+  </div>
+</div>
+
+<!-- ═══ 결과 ═══ -->
+<div id="result">
+  <div class="r-ttl">배달완료</div>
+  <div class="r-sub" id="r-sub">8라운드가 끝났습니다.</div>
+  <div class="r-riders" id="r-riders"></div>
+  <div class="r-scores" id="r-scores"></div>
+  <div class="r-discuss">
+    <div style="font-size:11px;font-weight:700;color:var(--acc);letter-spacing:3px;margin-bottom:12px">🗣 필수 토론 질문</div>
+    <div class="rdq">1. 라이더들 간 경쟁이 발생한 순간은? 그 경쟁은 누구에게 이익이었는가?</div>
+    <div class="rdq">2. 플랫폼은 얼마나 가져갔는가? 그 돈은 어디서 왔는가?</div>
+    <div class="rdq">3. 콜 선점 주사위 순위 — 이것은 능력 차이인가, 운인가, 구조인가?</div>
+    <div class="rdq">4. [콜 거부]를 선택할 수 없었던 순간은? 그것은 자유인가?</div>
+    <div class="rdq">5. 라이더들이 경쟁 대신 연대했다면 결과가 달랐을까?</div>
+    <div class="rdq">6. 현실의 플랫폼 라이더는 어떻게 이 구조를 바꿀 수 있는가?</div>
+  </div>
+  <button class="btn pri" style="padding:12px 32px;font-size:14px" onclick="location.reload()">다시 플레이</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════
+//  데이터
+// ════════════════════════════════════════
+const COLORS=['var(--p1)','var(--p2)','var(--p3)'];
+const CHEX=['#1e88e5','#43a047','#ab47bc'];
+const PLABELS=['라이더 1','라이더 2','라이더 3'];
+
+const ZONES=[
+  {id:'A',name:'주거지역',tag:'낮은 단가·낮은 위험',amod:-5,cbonus:0},
+  {id:'B',name:'오피스지역',tag:'피크 콜·주차 페널티',amod:5,cbonus:500},
+  {id:'C',name:'대학가',tag:'저단가·고객 불만',amod:0,cbonus:-500},
+  {id:'D',name:'번화가',tag:'고단가·교통 체증',amod:10,cbonus:1000},
+  {id:'E',name:'외곽지역',tag:'장거리 고단가·유류비↑',amod:5,cbonus:2000},
+  {id:'F',name:'플랫폼 허브',tag:'시작 거점',amod:-10,cbonus:0},
+  {id:'G',name:'정비소',tag:'장비 수리 -5,000원',amod:-20,cbonus:0},
+  {id:'H',name:'휴식존',tag:'피로 -3·무급',amod:-15,cbonus:-300},
+  {id:'I',name:'사고다발구역',tag:'지름길·사고 +20%',amod:25,cbonus:300},
+  {id:'J',name:'프로모션 핫스팟',tag:'함정·수수료 +5%',amod:0,cbonus:1500},
+];
+
+// 라운드 설명 카드
+const ROUND_CARDS=[
+  {round:1,phase:'허니문',color:'var(--p2)',
+   story:'배달이 시작된 첫날이다.\n플랫폼은 당신을 환영한다.\n수수료는 20%. 조건은 좋아 보인다.\n\n"자유롭게 일하세요, 파트너!"',
+   cards:'유효: 피크타임 프로모션 / 좋은 카드 위주'},
+  {round:2,phase:'허니문',color:'var(--p2)',
+   story:'사람들이 늘고 있다.\n신규 라이더가 진입한다.\n콜은 아직 충분해 보인다.\n하지만 번호표 순위가 달라지기 시작했다.',
+   cards:'유효: 신규 라이더 우대'},
+  {round:3,phase:'압박',color:'var(--or)',
+   story:'수수료가 올랐다.\n알림은 없었다.\n플랫폼 앱 업데이트만 왔다.',
+   cards:'유효: 수수료율 인상 / 수락률 압박'},
+  {round:4,phase:'압박',color:'var(--or)',
+   story:'콜이 줄었다. 라이더는 늘었다.\n먼저 잡지 않으면 빈손으로 돌아간다.\n번호표 1번이 중요해졌다.',
+   cards:'유효: 콜 경쟁 강화 / 단가 하락'},
+  {round:5,phase:'압박',color:'var(--or)',
+   story:'단가가 낮아졌다.\n"합리적인 요금 정책"이라고 한다.\n당신의 생계는 어떻게 되나?',
+   cards:'유효: 단가 하락 / 블라인드 페널티'},
+  {round:6,phase:'붕괴/전환',color:'var(--acc)',
+   story:'블라인드 페널티 알림이 날아왔다.\n이유는 알 수 없다.\n이의 제기 창구도 없다.',
+   cards:'유효: 블라인드 페널티 / 계정 점검'},
+  {round:7,phase:'붕괴/전환',color:'var(--acc)',
+   story:'계정 점검 알림이 떴다.\n이번 턴은 배달이 불가능하다.\n연대를 시작할 마지막 기회일 수도 있다.',
+   cards:'유효: 계정 점검 / 수수료율 인상 II'},
+  {round:8,phase:'붕괴/전환',color:'var(--acc)',
+   story:'마지막 라운드다.\n연대하거나, 탈락하거나.\n이것이 오늘의 선택이다.',
+   cards:'유효: 전체 알고리즘 카드'},
+];
+
+const ALGO_CARDS=[
+  {name:'신규 라이더 우대',effect:'전체 콜 단가 -300원. 콜 수 -1.',concept:'산업예비군',
+   fn:G=>{G.gBonus-=300;G.extraCallPenalty+=1;log('[알고리즘] 신규 라이더 유입. 콜 단가 -300, 콜 수 -1.','algo');}},
+  {name:'수수료율 인상',effect:'수수료 +3% (전체 누적).',concept:'잉여가치 강화',
+   fn:G=>{G.fee=Math.min(G.fee+3,35);log(`[알고리즘] 수수료율 → ${G.fee}%. 아무도 알려주지 않았습니다.`,'algo');}},
+  {name:'고객 불만 접수',effect:'무작위 라이더 1명 평점 -0.2.',concept:'노동 소외',
+   fn:G=>{const t=rndAlive(G);if(t!=null){G.ps[t].rating=Math.max(G.ps[t].rating-.2,3.0);log(`[알고리즘] ${G.ps[t].name} — 고객 불만 평점 -0.2`,'bad');}}},
+  {name:'기상 악화',effect:'전체 이동 -1. 피로도 +1.',concept:'절대적 잉여가치',
+   fn:G=>{G.weather=true;log('[알고리즘] 우천 시 배달비 지원! (피로도는 올라갑니다)','algo');}},
+  {name:'블라인드 페널티',effect:'무작위 1명 현금 -2,000원.',concept:'임금의 은폐',
+   fn:G=>{const t=rndAlive(G);if(t!=null){G.ps[t].cash-=2000;log(`[알고리즘] ${G.ps[t].name} — 정산 조정 -₩2,000. 이유 없음.`,'bad');}}},
+  {name:'피크타임 프로모션',effect:'콜 +1,000원. 수수료 +5%.',concept:'임금의 은폐',
+   fn:G=>{G.gBonus+=1000;G.fee=Math.min(G.fee+5,35);log('[알고리즘] 피크타임! 보상 +₩1,000, 수수료도 올랐습니다.','algo');}},
+  {name:'수락률 압박',effect:'수락률 80% 미만 전원 평점 -0.1.',concept:'알고리즘 통제',
+   fn:G=>{G.ps.forEach(p=>{if(!p.elim&&p.acceptRate<80){p.rating=Math.max(p.rating-.1,3.0);log(`[알고리즘] ${p.name} 수락률 미달 평점 -0.1`,'bad');}});}},
+  {name:'단가 하락',effect:'전체 콜 단가 -500원.',concept:'상대적 잉여가치',
+   fn:G=>{G.gBonus-=500;log('[알고리즘] 합리적인 요금 정책. 단가 -500원.','algo');}},
+  {name:'콜 경쟁 강화',effect:'콜 수 -1. 경쟁 격화.',concept:'산업예비군',
+   fn:G=>{G.extraCallPenalty+=1;log('[알고리즘] 콜 경쟁 강화. 콜이 더 줄었습니다.','algo');}},
+  {name:'계정 점검',effect:'무작위 1명 이번 턴 배달 불가.',concept:'알고리즘 통제',
+   fn:G=>{const t=rndAlive(G);if(t!=null){G.ps[t].skipTurn=true;log(`[알고리즘] ${G.ps[t].name} — 계정 점검. 이번 턴 배달 불가.`,'bad');}}},
+  {name:'정산 지연',effect:'현재 라이더 정산 다음 라운드 연기.',concept:'그림자 노동',
+   fn:G=>{G.ps[G.cp].settleDelay=true;log('[알고리즘] 정산 처리 중. 다음 라운드에 지급.','algo');}},
+  {name:'수수료율 인상 II',effect:'수수료 +5% 추가.',concept:'잉여가치 강화',
+   fn:G=>{G.fee=Math.min(G.fee+5,40);log(`[알고리즘] 수수료율 추가 인상 → ${G.fee}%.`,'algo');}},
+];
+
+const CALL_POOL=[
+  {name:'일반 도시락',pay:4500,dist:2,zone:'A→B',risk:0,warn:''},
+  {name:'프리미엄 야식',pay:7000,dist:4,zone:'B→D',risk:5,warn:'야간 피로+1'},
+  {name:'편의점 묶음',pay:3500,dist:1,zone:'A→C',risk:0,warn:''},
+  {name:'악천후 긴급',pay:8500,dist:5,zone:'F→E',risk:25,warn:'사고 +25%'},
+  {name:'고층 오피스',pay:5500,dist:3,zone:'C→B',risk:5,warn:'대기 피로+1'},
+  {name:'장거리 외곽',pay:11000,dist:9,zone:'F→E',risk:10,warn:'유류비 -1,500원 추가'},
+  {name:'번화가 피크',pay:6500,dist:2,zone:'A→D',risk:10,warn:'교통 체증'},
+  {name:'심야 고단가',pay:10000,dist:5,zone:'F→A',risk:10,warn:'피로+2'},
+  {name:'취소 위험 콜',pay:5000,dist:3,zone:'B→C',risk:0,warn:'취소 30%'},
+  {name:'저단가 배정',pay:2800,dist:1,zone:'C→A',risk:0,warn:'수락률 유지용'},
+  {name:'병원 긴급',pay:9500,dist:4,zone:'D→E',risk:15,warn:'실패 평점 -0.3'},
+  {name:'프로모션 함정 콜',pay:8000,dist:3,zone:'F→J',risk:0,warn:'수수료 +5% 추가'},
+];
+
+// 좋은 카드 풀
+const GOOD_CARDS=[
+  {name:'빠른 배차',type:'gd',effect:'다음 콜 선택 시 콜 순위 +1.',risk:'',fn:(G,p)=>{p.callBonus=1;log(`${p.name} — 빠른 배차 카드 사용. 다음 콜 선택권 +1.`,'gold');}},
+  {name:'수수료 환급',type:'gd',effect:'이번 정산 수수료 -5%.',risk:'',fn:(G,p)=>{p.feeDiscount=5;log(`${p.name} — 수수료 -5% 카드 사용.`,'gold');}},
+  {name:'피로 회복',type:'gd',effect:'피로도 -5.',risk:'',fn:(G,p)=>{p.fatigue=Math.max(p.fatigue-5,0);log(`${p.name} — 피로 회복 카드 사용. 피로도 -5.`,'gold');}},
+  {name:'평점 보너스',type:'gd',effect:'평점 +0.2.',risk:'',fn:(G,p)=>{p.rating=Math.min(p.rating+.2,5.0);log(`${p.name} — 평점 +0.2.`,'gold');}},
+  {name:'현금 보너스',type:'gd',effect:'즉시 현금 +3,000원.',risk:'',fn:(G,p)=>{p.cash+=3000;log(`${p.name} — 현금 +₩3,000.`,'gold');}},
+  {name:'알고리즘 방어',type:'gd',effect:'이번 라운드 알고리즘 나에게 무효.',risk:'',fn:(G,p)=>{p.algoImmune=true;log(`${p.name} — 알고리즘 면역 카드 사용.`,'gold');}},
+  {name:'보험 1회',type:'gd',effect:'사고 발생 시 수리비 보험 처리.',risk:'',fn:(G,p)=>{p.insuranceOnce=true;log(`${p.name} — 1회 보험 카드 사용.`,'gold');}},
+  {name:'주사위 보정',type:'gd',effect:'다음 라운드 순위 주사위 +3.',risk:'',fn:(G,p)=>{p.diceBonus=3;log(`${p.name} — 다음 라운드 주사위 +3.`,'gold');}},
+];
+
+// 페널티 카드 풀
+const PENALTY_CARDS=[
+  {name:'수락률 하락',type:'pen',effect:'사용 시 수락률 -5%. 미사용 시 페널티.',risk:'어쩔 수 없다',fn:(G,p)=>{p.acceptRate=Math.max(p.acceptRate-5,0);log(`${p.name} — 수락률 -5%.`,'penalty');}},
+  {name:'강제 저단가',type:'pen',effect:'이번 턴 고단가 콜 수락 불가.',risk:'똥콜만 남았다',fn:(G,p)=>{p.forceLowCall=true;log(`${p.name} — 이번 턴 저단가 콜만 수락 가능.`,'penalty');}},
+  {name:'피로 강제',type:'pen',effect:'피로도 +3.',risk:'몸이 버티는지 본다',fn:(G,p)=>{p.fatigue=Math.min(p.fatigue+3,20);log(`${p.name} — 피로도 +3.`,'penalty');}},
+  {name:'평점 감점',type:'pen',effect:'사용 시 평점 -0.1.',risk:'이유는 없다',fn:(G,p)=>{p.rating=Math.max(p.rating-.1,3.0);log(`${p.name} — 평점 -0.1.`,'penalty');}},
+  {name:'현금 차감',type:'pen',effect:'사용 시 현금 -1,000원.',risk:'정산 조정',fn:(G,p)=>{p.cash-=1000;log(`${p.name} — 현금 -₩1,000.`,'penalty');}},
+  {name:'수수료 폭탄',type:'pen',effect:'이번 정산 수수료 +5% 추가.',risk:'플랫폼의 선물',fn:(G,p)=>{p.feeExtra=5;log(`${p.name} — 수수료 +5% 페널티 카드.`,'penalty');}},
+  {name:'이동 방해',type:'pen',effect:'이번 이동 -2.',risk:'앱이 느리다',fn:(G,p)=>{p.movePenalty=2;log(`${p.name} — 이동 -2 페널티.`,'penalty');}},
+  {name:'콜 거부 강제',type:'pen',effect:'이번 턴 콜 수락 불가. 콜 거부 불이익 자동.',risk:'어쩔 수 없다',fn:(G,p)=>{p.skipTurn=true;p.acceptRate=Math.max(p.acceptRate-5,0);p.rating=Math.max(p.rating-.1,3.0);log(`${p.name} — 강제 콜 거부 페널티. 수락률 -5%, 평점 -0.1.`,'penalty');}},
+];
+
+// 옵션 카드 풀 (초기 핸드카드)
+const OPT_CARDS=[
+  {name:'에너지 드링크',type:'opt',effect:'피로도 -3.',risk:'다음턴 피로+2',fn:(G,p)=>{p.fatigue=Math.max(p.fatigue-3,0);p.fatigueDebt=2;log(`${p.name} — 에너지 드링크. 피로 -3.`,'good');}},
+  {name:'과속 질주',type:'opt',effect:'이동 +3. 사고 +20%.',risk:'피로+2',fn:(G,p)=>{p.speedBonus=3;p.fatigue+=2;p.amod=(p.amod||0)+20;log(`${p.name} — 과속 질주! 피로 +2.`,'good');}},
+  {name:'우회 경로',type:'opt',effect:'사고 확률 -15%.',risk:'이동 -2',fn:(G,p)=>{p.amod=(p.amod||0)-15;log(`${p.name} — 우회 경로. 사고 확률 -15%.`,'good');}},
+  {name:'보험 가입',type:'opt',effect:'사고 수리비 보험 처리.',risk:'-₩300/라운드',fn:(G,p)=>{p.hasIns=true;p.cash-=300;log(`${p.name} — 보험 가입.`,'good');}},
+  {name:'동료 정보 공유',type:'sol',effect:'연대 게이지 +2.',risk:'배달 1건 제한',fn:(G,p)=>{G.sol=Math.min(G.sol+2,10);log(`${p.name} — 연대 게이지 +2.`,'good');}},
+  {name:'콜 양보',type:'sol',effect:'다른 라이더에게 콜 양보. 연대 +1.',risk:'수입 없음',fn:(G,p)=>{G.sol=Math.min(G.sol+1,10);p.skipDelivery=true;log(`${p.name} — 콜 양보. 연대 +1.`,'good');}},
+  {name:'주사위 보정',type:'opt',effect:'다음 라운드 순위 주사위 +2.',risk:'',fn:(G,p)=>{p.diceBonus=(p.diceBonus||0)+2;log(`${p.name} — 다음 라운드 주사위 +2.`,'good');}},
+  {name:'사고 예방',type:'opt',effect:'이번 사고 확률 0%.',risk:'이동 -1',fn:(G,p)=>{p.amod=-99;log(`${p.name} — 사고 예방 카드. 이번 사고 확률 0%.`,'good');}},
+  {name:'평점 방어',type:'opt',effect:'이번 라운드 평점 하락 1회 무효.',risk:'',fn:(G,p)=>{p.ratingShield=true;log(`${p.name} — 평점 방어 카드.`,'good');}},
+  {name:'콜 거부 방어',type:'opt',effect:'이번 콜 거부 불이익 무효화.',risk:'',fn:(G,p)=>{p.refuseShield=true;log(`${p.name} — 콜 거부 방어 카드.`,'good');}},
+];
+
+const SOL_ACTIONS=[
+  {name:'단체 항의',gauge:5,fn:G=>{G.fee=Math.max(G.fee-3,15);G.sol-=3;log('[연대] 단체 항의! 수수료 -3%.','good');}},
+  {name:'집단 로그아웃',gauge:7,fn:G=>{G.platformFreeze=true;G.sol-=5;log('[연대] 집단 로그아웃! 이번 라운드 플랫폼 이익 정지.','good');}},
+  {name:'파업 선언',gauge:10,fn:G=>{G.platformProfit=Math.max(G.platformProfit-5,0);G.sol=0;log('[연대] ⚡ 파업 선언! 플랫폼 이익 -5.','good');}},
+];
+
+// ════════════════════════════════════════
+//  게임 상태
+// ════════════════════════════════════════
+let G={}, selectedCard=null, pendingSettle=null, roundCalls=[], grantCallback=null;
+let _n=2, _h=3;
+
+function rndAlive(G){
+  const a=G.ps.map((p,i)=>p.elim?null:i).filter(i=>i!==null);
+  return a.length?a[Math.floor(Math.random()*a.length)]:null;
+}
+function rndFrom(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+function initG(n,h){
+  G={
+    n, round:1, maxR:8, cp:0,
+    ps:Array.from({length:n},(_,i)=>({
+      name:PLABELS[i], color:CHEX[i],
+      cash:15000, rating:4.8, fatigue:0, acceptRate:100,
+      equip:100, hasIns:false, acct:'active', zone:'F',
+      elim:false, hand:[], deliveredCall:null,
+      amod:0, speedBonus:0, skipTurn:false, skipDelivery:false,
+      fatigueDebt:0, settleDelay:false, debt:0,
+      totalFees:0, solUsed:0, feeDiscount:0, feeExtra:0,
+      algoImmune:false, insuranceOnce:false,
+      callBonus:0, forceLowCall:false, movePenalty:0,
+      ratingShield:false, refuseShield:false, diceBonus:0,
+      cardUsedThisTurn:false,
+    })),
+    fee:20, platformProfit:0, sol:0, demand:'mid',
+    gBonus:0, weather:false, platformFreeze:false,
+    extraCallPenalty:0, algoDrawn:false,
+    diceRanks:[], // [{pi, roll}]
+    step:'roundcard', // roundcard>dice>algo>card>move>call>deliver>settle>next
+  };
+  // 초기 핸드카드
+  G.ps.forEach(p=>{for(let i=0;i<h;i++) drawOpt(p);});
+}
+
+function drawOpt(p){p.hand.push({...rndFrom(OPT_CARDS)});}
+function drawGood(p){p.hand.push({...rndFrom(GOOD_CARDS)});}
+function drawPenalty(p){p.hand.push({...rndFrom(PENALTY_CARDS)});}
+
+// ════════════════════════════════════════
+//  렌더링
+// ════════════════════════════════════════
+function renderAll(){
+  renderLP(); renderBoard(); renderCalls(); renderHand();
+  updateTracks(); updateHeader();
+}
+
+function renderLP(){
+  const el=document.getElementById('lpanel'); el.innerHTML='';
+  G.ps.forEach((p,i)=>{
+    const div=document.createElement('div');
+    div.className='rcard'+(i===G.cp?' active-r':'')+(p.elim?' r-elim':'');
+    const fc=p.fatigue<10?'#43a047':p.fatigue<15?'#ffb300':'#ef5350';
+    const rc=p.rating>=4.5?'#1e88e5':p.rating>=4.0?'#ffb300':'#ef5350';
+    div.innerHTML=`<div class="accent-bar" style="background:${p.color}"></div>
+<div class="rname" style="color:${p.color}">🛵 ${p.name}
+  ${i===G.cp&&!p.elim?`<span class="rtag" style="background:${p.color};color:#fff">TURN</span>`:''}
+  ${p.elim?'<span style="color:#ef5350;font-size:10px">퇴출</span>':''}
+</div>
+<div class="stat-r"><span class="sl">현금</span><span class="sv" style="color:${p.cash>=0?'#43a047':'#ef5350'}">${p.cash>=0?'₩':'-₩'}${Math.abs(p.cash).toLocaleString()}</span></div>
+<div class="stat-r"><span class="sl">평점</span><span class="sv" style="color:${rc}">${p.rating.toFixed(1)}</span></div>
+<div class="stat-r"><span class="sl">피로도</span><span class="sv" style="color:${fc}">${p.fatigue}/20</span></div>
+<div class="mini-bar"><div class="mini-fill" style="width:${p.fatigue/20*100}%;background:${fc}"></div></div>
+<div class="stat-r"><span class="sl">보험</span><span class="sv" style="color:${p.hasIns?'#43a047':'#ef5350'}">${p.hasIns?'가입':'미가입'}</span></div>
+<div class="stat-r"><span class="sl">핸드</span><span class="sv" style="color:var(--lg)">${p.hand.length}장</span></div>
+<div class="r-zone">📍 ${ZONES.find(z=>z.id===p.zone).name}(${p.zone})</div>`;
+    el.appendChild(div);
+  });
+}
+
+function renderBoard(){
+  const grid=document.getElementById('board-grid');
+  grid.innerHTML='';
+  const zr={};
+  G.ps.forEach((p,i)=>{if(!p.elim)(zr[p.zone]=zr[p.zone]||[]).push(i);});
+  const callZones=new Set(roundCalls.map(c=>c.call.zone.split('→')[0]));
+  ZONES.forEach(z=>{
+    const div=document.createElement('div');
+    const hc=callZones.has(z.id);
+    div.className='zone'+(hc?' pulse':'');
+    const riders=zr[z.id]||[];
+    const unc=roundCalls.filter(c=>c.call.zone.startsWith(z.id)&&c.claimer===null).length;
+    div.innerHTML=`<div class="zid">${z.id}</div><div class="zname">${z.name}</div><div class="ztag">${z.tag}</div>
+${unc>0?`<div class="zcall">콜${unc}</div>`:''}
+<div class="zdots">${riders.map(i=>`<div class="zdot" style="background:${G.ps[i].color}"></div>`).join('')}</div>`;
+    grid.appendChild(div);
+  });
+}
+
+function renderCalls(){
+  const pool=document.getElementById('call-pool');
+  pool.innerHTML='';
+  if(!roundCalls.length){
+    pool.innerHTML='<div style="font-size:12px;color:var(--gr);padding:14px;grid-column:1/-1;text-align:center">콜 공개 버튼을 누르세요</div>';
+    return;
+  }
+  roundCalls.forEach((item,i)=>{
+    const adj=item.call.pay+(G.gBonus||0);
+    const div=document.createElement('div');
+    div.className='citem'+(item.claimer!==null?' claimed':'');
+    const cw=item.claimer!==null?G.ps[item.claimer].color:'';
+    div.innerHTML=`<div class="ci-name">${item.call.name}</div>
+<div class="ci-pay">+₩${adj.toLocaleString()}</div>
+<div class="ci-info">${item.call.dist}km | ${item.call.zone}</div>
+${item.call.risk>0?`<div class="ci-warn">⚠ 사고 +${item.call.risk}%</div>`:''}
+${item.call.warn?`<div class="ci-warn">⚡ ${item.call.warn}</div>`:''}
+${item.claimer!==null?`<div class="ci-who" style="color:${cw}">${G.ps[item.claimer].name}</div>`:''}`;
+    if(item.claimer===null) div.onclick=()=>claimCall(i);
+    pool.appendChild(div);
+  });
+}
+
+function renderHand(){
+  const p=cp(); const list=document.getElementById('hand-list');
+  list.innerHTML='';
+  document.getElementById('hand-cnt').textContent=`(${p.hand.length}장)`;
+  document.getElementById('must-warn').style.display=
+    (G.step==='card')?'block':'none';
+  if(!p.hand.length){
+    list.innerHTML='<div style="font-size:12px;color:var(--gr);padding:6px 0">카드 없음</div>';
+    document.getElementById('btn-usecard').disabled=true; return;
+  }
+  p.hand.forEach((c,i)=>{
+    const div=document.createElement('div');
+    const mustUse=G.step==='card';
+    div.className=`hcard ${c.type}`+(selectedCard===i?' sel':'')+(mustUse?' must-use':'');
+    div.innerHTML=`<div class="hc-type">${c.type==='sol'?'SOLIDARITY':c.type==='gd'?'GOOD CARD':c.type==='pen'?'PENALTY':'OPTION'}</div>
+<div class="hc-name">${c.name}</div>
+<div class="hc-eff">${c.effect}</div>
+<div class="hc-risk">${c.risk}</div>
+${mustUse?'<div class="must-badge">⚡ 이번 턴 사용 가능</div>':''}`;
+    div.onclick=()=>{selectedCard=selectedCard===i?null:i;renderHand();document.getElementById('btn-usecard').disabled=selectedCard===null;};
+    list.appendChild(div);
+  });
+}
+
+function renderNumplates(){
+  const el=document.getElementById('numplates'); el.innerHTML='';
+  G.diceRanks.forEach(({pi,roll,rank})=>{
+    const p=G.ps[pi];
+    const div=document.createElement('div');
+    div.className='np';
+    div.style.borderColor=p.color;
+    div.innerHTML=`<div class="np-num" style="color:${p.color}">${rank}</div>
+<div class="np-name" style="color:${p.color}">${p.name}</div>
+<div style="font-size:10px;color:var(--gr);margin-top:2px">주사위: ${roll}</div>`;
+    el.appendChild(div);
+  });
+}
+
+function updateTracks(){
+  document.getElementById('tf-platform').style.width=Math.min(G.platformProfit/50*100,100)+'%';
+  document.getElementById('tv-platform').textContent=`${G.platformProfit}/50`;
+  document.getElementById('tf-sol').style.width=G.sol/10*100+'%';
+  document.getElementById('tv-sol').textContent=`${G.sol}/10`;
+  const dw=G.demand==='high'?100:G.demand==='mid'?50:25;
+  document.getElementById('tf-demand').style.width=dw+'%';
+  document.getElementById('tv-demand').textContent=G.demand==='high'?'고(高)':G.demand==='mid'?'중(中)':'저(低)';
+}
+
+function updateHeader(){
+  const p=cp();
+  document.getElementById('h-round').textContent=`R${G.round}/8`;
+  document.getElementById('h-turn').textContent=`${p.name}의 턴`;
+  document.getElementById('h-turn').style.borderColor=p.color;
+  document.getElementById('h-turn').style.color=p.color;
+  document.getElementById('h-step').textContent=stepLabel();
+  document.getElementById('h-platform').textContent=`플랫폼:${G.platformProfit}`;
+  const rc=ROUND_CARDS[G.round-1];
+  document.getElementById('pb-phase').textContent=`PHASE — R${G.round}`;
+  document.getElementById('pb-name').textContent=rc.phase+' — '+[
+    '자유의 착시','사람이 늘고 있다','수수료가 올랐다','콜이 줄었다',
+    '단가가 낮아졌다','이유를 모른다','마지막 기회','연대냐 탈락이냐'
+  ][G.round-1];
+  document.getElementById('pb-round').textContent=`ROUND ${G.round} / 8`;
+  document.getElementById('cur-name').textContent=p.name;
+  document.getElementById('cur-name').style.color=p.color;
+  document.getElementById('cur-step').textContent=stepLabel();
+  document.getElementById('cur-bar').style.background=p.color;
+  // 라운드 카드 미니
+  const rci=document.getElementById('round-card');
+  rci.innerHTML=`<div class="rc-bar" style="background:${rc.color}"></div>
+<div class="rc-round">ROUND ${rc.round}</div>
+<div class="rc-phase" style="color:${rc.color}">${rc.phase}</div>
+<div class="rc-story">${rc.story.replace(/\n/g,'<br>')}</div>`;
+}
+
+function stepLabel(){
+  const m={roundcard:'라운드 카드 확인',dice:'콜 선점 주사위',algo:'알고리즘 카드',
+    card:'핸드카드 의무 사용',move:'이동하기',call:'콜 선점',deliver:'배달 실행',
+    settle:'정산하기',next_p:'다음 라이더',next_r:'다음 라운드'};
+  return m[G.step]||'—';
+}
+
+// ════════════════════════════════════════
+//  버튼 상태
+// ════════════════════════════════════════
+function setStep(step){
+  G.step=step;
+  const s=step;
+  document.getElementById('btn-roundcard').disabled=s!=='roundcard';
+  document.getElementById('btn-dice').disabled=s!=='dice';
+  document.getElementById('btn-algo').disabled=s!=='algo';
+  document.getElementById('btn-roll').disabled=s!=='move';
+  document.getElementById('btn-showcall').disabled=s!=='call';
+  document.getElementById('btn-deliver').disabled=s!=='deliver';
+  document.getElementById('btn-settle').disabled=s!=='settle';
+  document.getElementById('btn-next').disabled=s!=='next_p'&&s!=='next_r';
+  // 핸드카드 사용은 card 단계에서 강조
+  renderHand();
+  const nl=document.getElementById('next-lbl');
+  if(s==='next_p'){const np=G.ps[(G.cp+1)%G.n];nl.textContent=`→ ${np.name}`;}
+  else if(s==='next_r'){nl.textContent=`→ R${G.round+1}`;}
+  else nl.textContent='';
+  updateHeader();
+  renderLP();
+}
+
+// ════════════════════════════════════════
+//  로그
+// ════════════════════════════════════════
+function log(msg,type='sys'){
+  const el=document.getElementById('logbox');
+  const d=document.createElement('div');
+  d.className=`ll ${type}`;
+  d.textContent=`[R${G.round}] ${msg}`;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+}
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
+}
+function cp(){return G.ps[G.cp];}
+
+// ════════════════════════════════════════
+//  라운드 카드
+// ════════════════════════════════════════
+function showRoundCard(){
+  const rc=ROUND_CARDS[G.round-1];
+  const big=document.getElementById('rc-big');
+  big.style.background=`${rc.color}11`;
+  big.style.borderColor=rc.color;
+  big.innerHTML=`<div class="rcb-round" style="color:${rc.color}">ROUND ${rc.round}</div>
+<div class="rcb-phase" style="color:${rc.color}">${rc.phase}</div>
+<div class="rcb-story">${rc.story.replace(/\n/g,'<br>')}</div>
+<div class="rcb-cards">${rc.cards}</div>`;
+  document.getElementById('rc-ov').classList.add('show');
+  log(`[라운드 카드] ROUND ${rc.round} — ${rc.phase}`, 'info');
+}
+function afterRoundCard(){setStep('dice');}
+
+// ════════════════════════════════════════
+//  주사위 순위
+// ════════════════════════════════════════
+function showDiceRoll(){
+  document.getElementById('dice-ov').classList.add('show');
+  document.getElementById('btn-confirm-dice').style.display='none';
+  document.getElementById('btn-reroll').disabled=false;
+  document.getElementById('dice-results').innerHTML='';
+  document.getElementById('dice-rank-explain').textContent='주사위를 굴려 이번 라운드 콜 선점 순위를 정합니다.';
+}
+
+function rollAllDice(){
+  const rolls=G.ps.map((p,i)=>({
+    pi:i, roll:Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+(p.diceBonus||0)
+  }));
+  // 정렬 (내림차순)
+  rolls.sort((a,b)=>b.roll-a.roll);
+  // 동점 처리
+  for(let i=0;i<rolls.length-1;i++){
+    if(rolls[i].roll===rolls[i+1].roll){
+      rolls[i].tieBreak=Math.floor(Math.random()*6)+1;
+      rolls[i+1].tieBreak=Math.floor(Math.random()*6)+1;
+      if(rolls[i].tieBreak<rolls[i+1].tieBreak){[rolls[i],rolls[i+1]]=[rolls[i+1],rolls[i]];}
+    }
+  }
+  rolls.forEach((r,idx)=>r.rank=idx+1);
+  G.diceRanks=rolls;
+
+  const res=document.getElementById('dice-results');
+  res.innerHTML='';
+  rolls.forEach(r=>{
+    const p=G.ps[r.pi];
+    const div=document.createElement('div');
+    div.className='dr';
+    div.style.borderColor=r.rank===1?'var(--yl)':'var(--bd)';
+    div.innerHTML=`<div class="dr-name" style="color:${p.color}">${p.name}</div>
+<div class="dr-dice" style="color:${r.rank===1?'var(--yl)':p.color}">${r.roll}${r.tieBreak?` (연장:${r.tieBreak})`:''}</div>
+<div class="dr-rank" style="background:${r.rank===1?'var(--yl)':p.color};color:#000">${r.rank}위</div>`;
+    res.appendChild(div);
+  });
+
+  const explain=rolls.map(r=>`${r.rank}위 ${G.ps[r.pi].name} (${r.roll})`).join(' → ');
+  document.getElementById('dice-rank-explain').textContent=
+    `순위: ${explain}\n1위 ${G.ps[rolls[0].pi].name}가 알고리즘 카드를 뒤집고 콜을 먼저 선택합니다.`;
+
+  // cp를 1위로 설정
+  G.cp=rolls[0].pi;
+  document.getElementById('btn-confirm-dice').style.display='block';
+  document.getElementById('btn-reroll').disabled=true;
+
+  // 다이스 보너스 리셋
+  G.ps.forEach(p=>{p.diceBonus=0;});
+}
+
+function confirmDice(){
+  closeOv('dice-ov');
+  renderNumplates();
+  log(`콜 선점 순위 확정: ${G.diceRanks.map(r=>`${r.rank}위 ${G.ps[r.pi].name}`).join(' → ')}`,'compete');
+  // 1위가 알고리즘 카드 뽑음
+  setStep('algo');
+  renderAll();
+}
+
+// ════════════════════════════════════════
+//  알고리즘 카드
+// ════════════════════════════════════════
+function doAlgo(){
+  let pool;
+  if(G.round<=2) pool=[ALGO_CARDS[5],ALGO_CARDS[5],ALGO_CARDS[0]];
+  else if(G.round<=5) pool=ALGO_CARDS.slice(0,9);
+  else pool=ALGO_CARDS;
+  const card=rndFrom(pool);
+  const rc=document.getElementById('round-card');
+  rc.innerHTML+=`<div style="margin-top:8px;padding:8px;background:rgba(229,57,53,.15);border-left:3px solid var(--acc)">
+<div style="font-size:11px;color:var(--acc);font-weight:700">${card.name}</div>
+<div style="font-size:11px;color:var(--lg);margin-top:3px">${card.effect}</div></div>`;
+  card.fn(G);
+  G.algoDrawn=true;
+  updateTracks();
+  renderLP();
+  setStep('card'); // 핸드카드 의무 사용
+}
+
+// ════════════════════════════════════════
+//  핸드카드 의무 사용
+// ════════════════════════════════════════
+function useCard(){
+  if(selectedCard===null) return;
+  const p=cp(); const card=p.hand[selectedCard];
+  card.fn(G,p); p.hand.splice(selectedCard,1);
+  p.cardUsedThisTurn=true;
+  selectedCard=null;
+  renderHand();
+  document.getElementById('btn-usecard').disabled=true;
+  renderLP(); updateTracks();
+  // 핸드카드 사용 후 이동으로
+  setStep('move');
+}
+
+// ════════════════════════════════════════
+//  이동
+// ════════════════════════════════════════
+function doMove(){
+  const p=cp();
+  if(!p.cardUsedThisTurn){
+    toast('⚡ 핸드카드를 먼저 1장 사용해야 합니다!');
+    // 미사용 페널티
+    p.rating=Math.max(p.rating-.1,3.0); p.fatigue=Math.min(p.fatigue+2,20);
+    log(`${p.name} — 핸드카드 미사용 페널티: 평점 -0.1, 피로도 +2`,'bad');
+    renderLP();
+  }
+  let d1=Math.floor(Math.random()*6)+1, d2=Math.floor(Math.random()*6)+1;
+  let total=d1+d2;
+  if(G.weather) total=Math.max(total-1,1);
+  if(p.fatigue>=10&&p.fatigue<15) total=Math.min(d1,d2);
+  total+=(p.speedBonus||0);
+  total-=(p.movePenalty||0);
+  p.speedBonus=0; p.movePenalty=0;
+  log(`🎲 ${p.name}: ${d1}+${d2}=${total}${G.weather?' (악천후-1)':''}`, 'info');
+  const idx=ZONES.findIndex(z=>z.id===p.zone);
+  const ni=(idx+Math.floor(total/2))%ZONES.length;
+  p.zone=ZONES[ni].id;
+  log(`${p.name} → ${ZONES[ni].name}(${p.zone})`, 'info');
+  if(p.zone==='H'){p.fatigue=Math.max(p.fatigue-3,0);log(`${p.name} — 휴식존. 피로 -3 (무급)`,'good');}
+  p.fatigue=Math.min(p.fatigue+1,20);
+  if(G.weather) p.fatigue=Math.min(p.fatigue+1,20);
+  renderBoard(); renderLP();
+  // 콜 생성
+  genCalls();
+  setStep('call');
+}
+
+function genCalls(){
+  const base=G.demand==='high'?G.n+1:G.demand==='mid'?G.n:G.n-1;
+  const cnt=Math.max(base-(G.extraCallPenalty||0),1);
+  G.extraCallPenalty=0;
+  roundCalls=Array.from({length:cnt},()=>({call:{...rndFrom(CALL_POOL)},claimer:null}));
+}
+
+// ════════════════════════════════════════
+//  콜 공개
+// ════════════════════════════════════════
+function doShowCalls(){
+  renderCalls(); renderBoard();
+  log(`콜 ${roundCalls.length}개 공개. 순위대로 수락하세요.`,'compete');
+  toast(`⚡ ${cp().name}의 차례! 먼저 클릭하세요.`);
+  setStep('deliver');
+}
+
+function claimCall(i){
+  if(roundCalls[i].claimer!==null){toast('이미 수락된 콜입니다!');return;}
+  const p=cp();
+  if(p.elim) return;
+  // 순위 확인
+  const myRank=G.diceRanks.find(r=>r.pi===G.cp)?.rank||99;
+  // 저단가 강제 체크
+  if(p.forceLowCall&&roundCalls[i].call.pay>3500){
+    toast(`${p.name}: 이번 턴 저단가 콜만 수락 가능합니다.`); return;
+  }
+  // 평점 제한
+  if(p.rating<3.5&&roundCalls[i].call.pay>3500){
+    toast(`${p.name}: 평점 미달 — 저단가 콜만 수락 가능합니다.`); return;
+  }
+  roundCalls[i].claimer=G.cp;
+  const adj=roundCalls[i].call.pay+(G.gBonus||0);
+  p.deliveredCall={...roundCalls[i].call,adjPay:adj};
+  log(`📱 ${p.name} → "${roundCalls[i].call.name}" 수락! ₩${adj.toLocaleString()} (${myRank}위)`,'compete');
+  G.ps.forEach((op,j)=>{if(j!==G.cp&&!op.elim) log(`${op.name} — 이 콜을 놓쳤습니다.`,'bad');});
+  p.forceLowCall=false;
+  renderCalls(); renderBoard();
+}
+
+// ════════════════════════════════════════
+//  배달
+// ════════════════════════════════════════
+function doDeliver(){
+  const p=cp();
+  if(p.skipTurn||p.skipDelivery){
+    p.skipTurn=false; p.skipDelivery=false;
+    log(`${p.name} — 이번 턴 배달 불가. 무급 대기.`,'bad');
+    p.fatigue=Math.min(p.fatigue+1,20); renderLP();
+    setStep('settle'); return;
+  }
+  if(!p.deliveredCall){
+    log(`${p.name} — 콜 없음. 무급 대기.`,'bad');
+    p.fatigue=Math.min(p.fatigue+1,20); renderLP();
+    setStep('settle'); return;
+  }
+  const call=p.deliveredCall;
+  let acc=0; let success=true;
+  // 취소
+  if(call.warn?.includes('취소')&&Math.random()<.3){
+    log(`${p.name} — "${call.name}" 고객 취소. 배달료 0.`,'bad');
+    p.deliveredCall={...call,adjPay:0,cancelled:true};
+    p.rating=Math.max(p.rating-.1,3.0); success=false;
+  }
+  if(success){
+    const zone=ZONES.find(z=>z.id===p.zone);
+    let prob=(zone.amod||0)+(p.amod||0)+(call.risk||0);
+    if(p.fatigue>=15) prob+=20; if(G.weather) prob+=10;
+    prob=Math.max(0,Math.min(prob,65));
+    if(prob>0&&Math.random()*100<prob){
+      if(p.hasIns||p.insuranceOnce){
+        log(`${p.name} ⚠ 사고! 보험 처리. 장비 -30%.`,'bad');
+        p.equip=Math.max(p.equip-30,0); p.insuranceOnce=false;
+      } else {
+        acc=6000+Math.floor(Math.random()*5000);
+        p.equip=Math.max(p.equip-50,0); p.fatigue=Math.min(p.fatigue+3,20);
+        log(`${p.name} 🚨 사고! 수리비 -₩${acc.toLocaleString()}`,'bad');
+      }
+      success=false;
+    }
+  }
+  p.fatigue=Math.min(p.fatigue+1,20);
+  if(G.weather) p.fatigue=Math.min(p.fatigue+1,20);
+  p.deliveredCall.accCost=acc;
+  p.deliveredCall.success=success;
+  p.amod=0;
+  if(success&&!p.deliveredCall.cancelled){
+    if(p.ratingShield){p.ratingShield=false;}else p.rating=Math.min(p.rating+.1,5.0);
+    log(`${p.name} — 배달 성공! 평점 +0.1`,'good');
+  }
+  renderLP(); setStep('settle');
+}
+
+// ════════════════════════════════════════
+//  [콜 거부]
+// ════════════════════════════════════════
+function doCallRefuse(){
+  const p=cp();
+  if(p.refuseShield){
+    p.refuseShield=false;
+    log(`${p.name} — 콜 거부 방어 카드 사용. 이번 거부는 불이익 없음.`,'good');
+    p.skipDelivery=true; setStep('settle'); return;
+  }
+  p.acceptRate=Math.max(p.acceptRate-5,0);
+  p.rating=Math.max(p.rating-.1,3.0);
+  p.fatigue=Math.min(p.fatigue+1,20);
+  log(`${p.name} — [콜 거부] 발동. 수락률 -5%, 평점 -0.1, 배차 등급 하락.`,'bad');
+  log(`⚠ 콜을 거부하면 알고리즘이 기록합니다. 이유는 구별하지 않습니다.`,'algo');
+  p.skipDelivery=true;
+  renderLP(); setStep('settle');
+}
+
+// ════════════════════════════════════════
+//  정산
+// ════════════════════════════════════════
+function doSettle(){
+  const p=cp(); const call=p.deliveredCall;
+  const gross=call?(call.cancelled?0:call.adjPay||0):0;
+  const feeRate=G.fee-(p.feeDiscount||0)+(p.feeExtra||0);
+  const fee=Math.floor(gross*feeRate/100);
+  const fuel=call?call.dist*200:0;
+  const dep=200, tel=100;
+  const ins=p.hasIns?300:0;
+  const acc=call?.accCost||0;
+  const net=gross-fee-fuel-dep-ins-tel-acc;
+  p.feeDiscount=0; p.feeExtra=0;
+
+  document.getElementById('settle-ttl').textContent=`💰 ${p.name} — 정산 내역`;
+  document.getElementById('settle-ttl').style.color=p.color;
+  const rows=document.getElementById('settle-rows'); rows.innerHTML='';
+  function sr(l,v,plus){const d=document.createElement('div');d.className='srow';
+    d.innerHTML=`<div class="slbl">${l}</div><div class="sval ${plus?'p':'m'}">${plus?'+':'-'}₩${Math.abs(v).toLocaleString()}</div>`;rows.appendChild(d);}
+  sr('총 배달료',gross,true);
+  sr(`플랫폼 수수료 (${feeRate}%)`,fee,false);
+  sr(`유류비 (${call?.dist||0}km)`,fuel,false);
+  sr('장비 감가상각',dep,false);
+  if(p.hasIns) sr('보험료',ins,false);
+  sr('통신비',tel,false);
+  if(acc>0) sr('사고 수리비',acc,false);
+  const fin=document.getElementById('settle-final');
+  fin.textContent=(net>=0?'₩':'-₩')+Math.abs(net).toLocaleString();
+  fin.className='stval '+(net>=0?'ok':'ng');
+  const msg=document.getElementById('settle-msg');
+  if(net<0){msg.style.borderLeftColor='var(--acc)';msg.innerHTML=`<strong style="color:var(--acc)">적자입니다.</strong> 열심히 배달했지만 실수익은 ${net.toLocaleString()}원. 이 라이더가 문제였을까요?`;}
+  else{msg.style.borderLeftColor='#43a047';msg.innerHTML=`실수익 ₩${net.toLocaleString()}. 플랫폼은 수수료 ₩${fee.toLocaleString()} 수취.`;}
+  pendingSettle={net,fee};
+  document.getElementById('settle-ov').classList.add('show');
+}
+
+function confirmSettle(){
+  const p=cp(); const {net,fee}=pendingSettle;
+  if(!p.settleDelay){
+    p.cash+=net;
+    if(!G.platformFreeze) G.platformProfit=Math.min(G.platformProfit+Math.floor(fee/800),50);
+  } else {log(`${p.name} — 정산 연기. 다음 라운드 지급.`,'bad'); p.settleDelay=false;}
+  p.totalFees+=fee;
+  p.deliveredCall=null; pendingSettle=null;
+  p.cash-=800; // 생계비
+  if(p.debt>0){p.cash-=4000;p.debt=Math.max(p.debt-4000,0);}
+  if(p.fatigueDebt){p.fatigue=Math.min(p.fatigue+p.fatigueDebt,20);p.fatigueDebt=0;}
+  log(`${p.name} 정산: ${net>=0?'+':'-'}₩${Math.abs(net).toLocaleString()} | 수수료 ₩${fee.toLocaleString()}`,'info');
+  checkAcct(p); updateTracks(); renderLP();
+  p.cardUsedThisTurn=false; // 다음 턴 리셋
+  advanceTurn();
+}
+
+function checkAcct(p){
+  if(p.rating<3.0||p.cash<-10000){
+    p.elim=true; p.acct='banned';
+    log(`🚨 ${p.name} — ${p.rating<3.0?'평점 3.0 미만':'부채 초과'}. 플랫폼에서 퇴출.`,'bad');
+    checkEnd();
+  } else if(p.rating<3.5){p.acct='warning';}
+  else{p.acct='active';}
+  if(G.platformProfit>=50){log('🚨 플랫폼 이익 트랙 50 도달. 플랫폼 독식 종료.','bad');setTimeout(endGame,600);}
+}
+
+function checkEnd(){
+  const alive=G.ps.filter(p=>!p.elim);
+  if(alive.length===0) {setTimeout(endGame,600);return true;}
+  if(alive.length===1&&G.n>1){log(`🚨 ${alive[0].name} 단독 생존. 게임 종료.`,'bad');setTimeout(endGame,800);return true;}
+  return false;
+}
+
+// ════════════════════════════════════════
+//  턴 진행
+// ════════════════════════════════════════
+function advanceTurn(){
+  // 다음 순위 라이더로
+  const curRankIdx=G.diceRanks.findIndex(r=>r.pi===G.cp);
+  let nextRankIdx=curRankIdx+1;
+  // 살아있는 다음 라이더 찾기
+  while(nextRankIdx<G.diceRanks.length&&G.ps[G.diceRanks[nextRankIdx].pi].elim) nextRankIdx++;
+  if(nextRankIdx>=G.diceRanks.length){
+    // 이번 라운드 모두 완료 → 카드 배분 후 다음 라운드
+    doCardGrant();
+  } else {
+    G.cp=G.diceRanks[nextRankIdx].pi;
+    setStep('card'); // 다음 라이더 핸드카드 단계부터
+    renderAll();
+  }
+}
+
+// ════════════════════════════════════════
+//  카드 배분 (라운드 종료 시)
+// ════════════════════════════════════════
+function doCardGrant(){
+  if(G.round>=G.maxR){endGame();return;}
+  const winner=G.diceRanks[0]; // 1위
+  const granted={winner:null,others:[]};
+  // 1위: 좋은 카드 1장
+  if(!G.ps[winner.pi].elim){
+    const gc={...rndFrom(GOOD_CARDS)};
+    G.ps[winner.pi].hand.push(gc);
+    if(G.ps[winner.pi].hand.length>5) G.ps[winner.pi].hand.shift();
+    granted.winner={pi:winner.pi,card:gc};
+  }
+  // 2위 이하: 페널티 카드 2장씩
+  G.diceRanks.slice(1).forEach(r=>{
+    if(G.ps[r.pi].elim) return;
+    for(let i=0;i<2;i++){
+      const pc={...rndFrom(PENALTY_CARDS)};
+      G.ps[r.pi].hand.push(pc);
+      if(G.ps[r.pi].hand.length>5) G.ps[r.pi].hand.shift();
+      granted.others.push({pi:r.pi,card:pc});
+    }
+  });
+  // 모달 표시
+  document.getElementById('grant-ttl').textContent=`라운드 ${G.round} 종료 — 카드 배분`;
+  const gc=document.getElementById('grant-cards'); gc.innerHTML='';
+  if(granted.winner){
+    const p=G.ps[granted.winner.pi]; const c=granted.winner.card;
+    const d=document.createElement('div'); d.className='gc gd';
+    d.innerHTML=`<div class="gc-type" style="color:var(--gold)">🏆 ${p.name} (1위) — 좋은 카드 수령</div>
+<div class="gc-name" style="color:var(--gold)">${c.name}</div>
+<div class="gc-eff">${c.effect}</div>`; gc.appendChild(d);
+  }
+  const done=new Set();
+  granted.others.forEach(({pi,card})=>{
+    const p=G.ps[pi];
+    const d=document.createElement('div'); d.className='gc pen';
+    d.innerHTML=`<div class="gc-type" style="color:var(--red)">⚠ ${p.name} — 페널티 카드 수령</div>
+<div class="gc-name" style="color:var(--red)">${card.name}</div>
+<div class="gc-eff">${card.effect}</div><div class="gc-eff" style="color:var(--gr)">${card.risk}</div>`;
+    gc.appendChild(d);
+  });
+  if(granted.winner) log(`🏆 ${G.ps[granted.winner.pi].name} (1위) → 좋은 카드 "${granted.winner.card.name}" 수령`,'gold');
+  granted.others.forEach(({pi,card})=>{if(!done.has(pi)){log(`⚠ ${G.ps[pi].name} → 페널티 카드 수령`,'penalty');done.add(pi);}});
+  grantCallback=()=>nextRound();
+  document.getElementById('grant-ov').classList.add('show');
+}
+
+function afterGrant(){if(grantCallback){grantCallback();grantCallback=null;}}
+
+function nextRound(){
+  G.round++;
+  if(G.round>G.maxR){endGame();return;}
+  // 리셋
+  G.cp=G.diceRanks[0]?.pi||0; // 일단 0으로, 다음 라운드 주사위로 재결정
+  G.algoDrawn=false; G.weather=false; G.platformFreeze=false;
+  G.gBonus=0; roundCalls=[];
+  const d=Math.random();
+  G.demand=d<.3?'low':d<.7?'mid':'high';
+  if(G.round>=4&&Math.random()<.35){G.gBonus-=200;log('[시스템] 신규 라이더 유입. 콜 분배 감소.','algo');}
+  G.ps.forEach(p=>{p.cardUsedThisTurn=false; p.algoImmune=false;});
+  log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,'sys');
+  log(`ROUND ${G.round} 시작 | ${ROUND_CARDS[G.round-1].phase}`,'info');
+  renderAll(); setStep('roundcard');
+}
+
+// ════════════════════════════════════════
+//  다음 버튼
+// ════════════════════════════════════════
+function doNext(){
+  if(G.step==='next_p'){selectedCard=null;renderAll();setStep('card');}
+  else if(G.step==='next_r'){nextRound();}
+}
+
+// ════════════════════════════════════════
+//  연대
+// ════════════════════════════════════════
+function doSol(i){
+  const a=SOL_ACTIONS[i];
+  if(G.sol<a.gauge){toast(`연대 게이지 ${a.gauge} 필요 (현재 ${G.sol})`);return;}
+  a.fn(G); G.ps[G.cp].solUsed++;
+  updateTracks(); renderLP();
+}
+
+// ════════════════════════════════════════
+//  모달 닫기
+// ════════════════════════════════════════
+function closeOv(id){document.getElementById(id).classList.remove('show');}
+
+// ════════════════════════════════════════
+//  종료
+// ════════════════════════════════════════
+function endGame(){
+  const rr=document.getElementById('r-riders'); rr.innerHTML='';
+  G.ps.forEach(p=>{
+    const d=document.createElement('div'); d.className='rres';
+    d.style.borderTopColor=p.color; d.style.borderTopWidth='3px';
+    d.innerHTML=`<div class="rres-name" style="color:${p.color}">🛵 ${p.name}${p.elim?' <span style="color:#ef5350">(퇴출)</span>':''}</div>
+<div class="rres-stat"><span style="color:var(--gr)">최종 현금</span><span style="color:${p.cash>=0?'#43a047':'#ef5350'};font-weight:700">${p.cash>=0?'₩':'-₩'}${Math.abs(p.cash).toLocaleString()}</span></div>
+<div class="rres-stat"><span style="color:var(--gr)">평점</span><span style="font-weight:700">${p.rating.toFixed(1)}</span></div>
+<div class="rres-stat"><span style="color:var(--gr)">납부 수수료</span><span style="color:#ef5350;font-weight:700">₩${p.totalFees.toLocaleString()}</span></div>`;
+    rr.appendChild(d);
+  });
+  const totFee=G.ps.reduce((a,p)=>a+p.totalFees,0);
+  const bestCash=Math.max(...G.ps.map(p=>p.cash));
+  const solScore=G.sol*2+G.ps.reduce((a,p)=>a+p.solUsed,0);
+  document.getElementById('r-scores').innerHTML=`
+<div class="rscore"><div class="rsc-lbl">플랫폼 축적</div><div class="rsc-v" style="color:var(--acc)">${G.platformProfit}</div><div class="rsc-d">수수료 총 ₩${totFee.toLocaleString()} 수취</div></div>
+<div class="rscore"><div class="rsc-lbl">라이더 최다 생존</div><div class="rsc-v" style="color:var(--p1)">₩${bestCash.toLocaleString()}</div><div class="rsc-d">플랫폼보다 많이 남겼나?</div></div>
+<div class="rscore"><div class="rsc-lbl">연대 점수</div><div class="rsc-v" style="color:var(--yl)">${solScore}</div><div class="rsc-d">경쟁 대신 연대의 기록</div></div>`;
+  let sub='8라운드가 끝났습니다. 하지만 내일도 알고리즘은 시작됩니다.';
+  if(G.platformProfit>=50) sub='플랫폼만 남았습니다. 라이더들은 소비됐습니다.';
+  else if(G.ps.every(p=>p.elim)) sub='모든 라이더가 퇴출됐습니다. 플랫폼은 여전히 운영됩니다.';
+  else if(solScore>=10) sub='연대가 구조를 흔들었습니다. 아직 끝나지 않았습니다.';
+  document.getElementById('r-sub').textContent=sub;
+  document.getElementById('result').classList.add('show');
+}
+
+// ════════════════════════════════════════
+//  인트로 설정
+// ════════════════════════════════════════
+function chgN(d){_n=Math.max(2,Math.min(3,_n+d));document.getElementById('cnt-v').textContent=_n;}
+function chgH(d){_h=Math.max(2,Math.min(5,_h+d));document.getElementById('cnt-h').textContent=_h;}
+
+function startGame(){
+  document.getElementById('intro').classList.add('hide');
+  setTimeout(()=>{
+    document.getElementById('app').classList.add('on');
+    initG(_n,_h);
+    roundCalls=[];
+    renderAll(); setStep('roundcard');
+    const el=document.getElementById('logbox');
+    function il(m,t){const d=document.createElement('div');d.className=`ll ${t}`;d.textContent=m;el.appendChild(d);}
+    il('═══════════════════════════════════════','sys');
+    il(`배달 앱에 로그인. ${_n}명의 라이더, 초기 핸드카드 ${_h}장.`,'info');
+    il('매 라운드 주사위로 순위를 정합니다. 번호표를 앞에 놓으세요.','info');
+    il('매 턴 핸드카드 1장 의무 사용. 미사용 시 평점 -0.1, 피로도 +2.','info');
+    il('[콜 거부]는 이유를 불문하고 알고리즘이 기록합니다.','algo');
+    il('ROUND 1 — 라운드 카드를 먼저 확인하세요.','sys');
+    il('═══════════════════════════════════════','sys');
+  },500);
+}
+</script>
+</body>
+</html>
